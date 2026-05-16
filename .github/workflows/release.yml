@@ -18,10 +18,6 @@ jobs:
             platform: linux/amd64
             output: kiro-reg-linux-amd64
             build_tags: webkit2_41
-          - os: ubuntu-latest
-            platform: linux/arm64
-            output: kiro-reg-linux-arm64
-            build_tags: webkit2_41
           - os: windows-latest
             platform: windows/amd64
             output: kiro-reg-windows-amd64.exe
