@@ -197,11 +197,10 @@ function confirmAction() {
 async function stopTask() {
   try {
     var result = await window.go.main.App.StopTask();
-    if (result.error) { 
-      showToast(result.error, 'error'); 
-      return; 
+    if (result.error) {
+      showToast(result.error, 'error');
+      return;
     }
-    document.getElementById('btn-stop').disabled = true;
     showToast('正在停止任务...');
   } catch(e) {
     showToast('停止失败: ' + (e.message || e), 'error');

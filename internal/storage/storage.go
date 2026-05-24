@@ -266,7 +266,8 @@ func ResetProxy() {
 }
 
 // NormalizeProxyAddress 归一化常见代理写法为完整 URL:
-//   - 已带 scheme 的 URL 原样返回
+//   - scheme://host:port:user:pass -> scheme://user:pass@host:port (bestgo 等格式)
+//   - 已带 scheme 且含 @ 的 URL 原样返回
 //   - host:port:user:pass -> http://user:pass@host:port (cliproxy 等导出格式)
 //   - host:port -> socks5://host:port
 //   - user:pass@host:port -> http://user:pass@host:port
@@ -274,9 +275,31 @@ func NormalizeProxyAddress(s string) string {
 	if s == "" {
 		return ""
 	}
+
+	// 处理 scheme://host:port:user:pass 格式
 	if strings.Contains(s, "://") {
+		idx := strings.Index(s, "://")
+		scheme := s[:idx]
+		remainder := s[idx+3:]
+
+		// 如果已经包含 @，说明是标准格式，直接返回
+		if strings.Contains(remainder, "@") {
+			return s
+		}
+
+		// 尝试解析为 host:port:user:pass
+		parts := strings.Split(remainder, ":")
+		if len(parts) == 4 {
+			host, port, user, pass := parts[0], parts[1], parts[2], parts[3]
+			if host != "" && port != "" {
+				return fmt.Sprintf("%s://%s:%s@%s:%s", scheme, user, pass, host, port)
+			}
+		}
+
+		// 其他情况原样返回
 		return s
 	}
+
 	if strings.Contains(s, "@") {
 		return "http://" + s
 	}
