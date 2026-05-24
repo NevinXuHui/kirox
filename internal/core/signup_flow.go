@@ -296,11 +296,19 @@ func (r *Registrar) Step9SendOTP() error {
 	return nil
 }
 
-// Step10GetOTP 等待验证码 (临时邮箱或 Outlook IMAP)
+// Step10GetOTP 等待验证码 (临时邮箱、Outlook IMAP 或 LuckMail)
 func (r *Registrar) Step10GetOTP() (string, error) {
 	log.Println("[10] 等待验证码")
 	if r.Cfg.UseOutlook && r.Cfg.OutlookAccount != nil {
 		code, err := email.WaitForOTP(*r.Cfg.OutlookAccount, r.OutlookMailCount, 120, 5)
+		if err != nil {
+			return "", err
+		}
+		log.Printf("验证码: %s", code)
+		return code, nil
+	}
+	if r.Cfg.UseLuckMail && r.Cfg.LuckMailProvider != nil {
+		code, err := r.Cfg.LuckMailProvider.WaitForCode(120, 3)
 		if err != nil {
 			return "", err
 		}

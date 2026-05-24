@@ -36,6 +36,10 @@ type Config struct {
 
 	MoEmailBaseURL string
 	MoEmailAPIKey  string
+
+	UseLuckMail      bool
+	LuckMailConfig   *email.LuckMailConfig
+	LuckMailProvider *email.LuckMailProvider
 }
 
 // NewConfig 创建默认配置

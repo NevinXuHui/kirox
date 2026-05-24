@@ -161,29 +161,40 @@ function selectEmailProvider(provider) {
   // 更新按钮样式
   const outlookBtn = document.querySelector('label[onclick*="outlook"]');
   const moemailBtn = document.querySelector('label[onclick*="moemail"]');
+  const luckmailBtn = document.querySelector('label[onclick*="luckmail"]');
 
-  if (provider === 'outlook') {
-    outlookBtn.style.borderColor = 'var(--primary)';
-    outlookBtn.style.background = 'rgba(59, 130, 246, 0.1)';
-    moemailBtn.style.borderColor = 'var(--border)';
-    moemailBtn.style.background = 'transparent';
-  } else {
-    outlookBtn.style.borderColor = 'var(--border)';
-    outlookBtn.style.background = 'transparent';
-    moemailBtn.style.borderColor = 'var(--primary)';
-    moemailBtn.style.background = 'rgba(59, 130, 246, 0.1)';
+  // 重置所有按钮
+  [outlookBtn, moemailBtn, luckmailBtn].forEach(function(btn) {
+    if (btn) {
+      btn.style.borderColor = 'var(--border)';
+      btn.style.background = 'transparent';
+    }
+  });
+
+  // 高亮选中的按钮
+  var activeBtn = provider === 'outlook' ? outlookBtn : provider === 'moemail' ? moemailBtn : luckmailBtn;
+  if (activeBtn) {
+    activeBtn.style.borderColor = 'var(--primary)';
+    activeBtn.style.background = 'rgba(59, 130, 246, 0.1)';
   }
 
-  // 显示/隐藏 MoeMail 配置选择
+  // 显示/隐藏配置区域
   const moemailConfigDiv = document.getElementById('moemail-config-select');
+  const luckmailConfigDiv = document.getElementById('luckmail-config-select');
   const hintDiv = document.getElementById('email-provider-hint');
+
+  moemailConfigDiv.style.display = 'none';
+  if (luckmailConfigDiv) luckmailConfigDiv.style.display = 'none';
 
   if (provider === 'moemail') {
     moemailConfigDiv.style.display = 'block';
     hintDiv.textContent = '使用 MoeMail 临时邮箱进行注册，每次任务会自动生成新邮箱。';
     loadMoeMailDomainsToList();
+  } else if (provider === 'luckmail') {
+    if (luckmailConfigDiv) luckmailConfigDiv.style.display = 'block';
+    hintDiv.textContent = '使用 LuckMail 接码平台，按成功收费。需要先在邮箱池页面配置 API 信息。';
+    loadLuckMailConfigToSelect();
   } else {
-    moemailConfigDiv.style.display = 'none';
     hintDiv.textContent = '使用微软邮箱进行注册，代理配置请在设置页设置。';
   }
 }
@@ -301,6 +312,43 @@ function toggleMoeMailDomain(domain, el) {
 function selectAllMoeMailDomains() {
   selectedMoeMailDomains = allMoeMailDomains.map(item => item.domain);
   updateDomainOptionStyles();
+}
+
+// 当前选中的 LuckMail 配置索引
+var selectedLuckMailConfigIdx = 0;
+
+// 加载 LuckMail 配置到注册页选择器
+async function loadLuckMailConfigToSelect() {
+  var selectDiv = document.getElementById('luckmail-config-list');
+  if (!selectDiv) return;
+
+  try {
+    var configs = await window.go.main.App.GetLuckMailConfigs();
+    if (!configs || configs.length === 0) {
+      selectDiv.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">暂无配置，请先在邮箱池页面添加</div>';
+      return;
+    }
+
+    var html = '';
+    configs.forEach(function(cfg, idx) {
+      var selected = idx === selectedLuckMailConfigIdx ? ' selected' : '';
+      html += '<div class="domain-chip' + selected + '" data-idx="' + idx + '" onclick="selectLuckMailConfig(' + idx + ')">' +
+        escapeHtml(cfg.name) + ' (' + escapeHtml(cfg.projectCode) + ')' +
+      '</div>';
+    });
+
+    selectDiv.innerHTML = '<div class="domain-chips-wrap">' + html + '</div>';
+  } catch (e) {
+    selectDiv.innerHTML = '<div style="text-align:center;color:var(--danger);font-size:12px;padding:12px;">加载失败</div>';
+  }
+}
+
+// 选择 LuckMail 配置
+function selectLuckMailConfig(idx) {
+  selectedLuckMailConfigIdx = idx;
+  document.querySelectorAll('#luckmail-config-list .domain-chip').forEach(function(el) {
+    el.classList.toggle('selected', parseInt(el.getAttribute('data-idx')) === idx);
+  });
 }
 
 // 关闭任务模态框

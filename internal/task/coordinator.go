@@ -13,6 +13,7 @@ import (
 	"reg_go/internal/core"
 	"reg_go/internal/data"
 	"reg_go/internal/email"
+	"reg_go/internal/kiro"
 	"reg_go/internal/storage"
 )
 
@@ -22,10 +23,11 @@ type StartTaskRequest struct {
 	Concurrency       int                              `json:"concurrency"`
 	Delay             int                              `json:"delay"`
 	OutputPath        string                           `json:"outputPath"`
-	EmailProvider     string                           `json:"emailProvider"`     // "outlook" 或 "moemail"
+	EmailProvider     string                           `json:"emailProvider"`     // "outlook" / "moemail" / "luckmail"
 	MoeMailDomains    []string                         `json:"moemailDomains"`    // 选中的域名列表
 	MoeMailConfigs    map[string][]email.MoeMailConfig `json:"moemailConfigs"`    // 域名 -> 配置列表映射
 	MoeMailRandomMode bool                             `json:"moemailRandomMode"` // 是否为随机模式
+	LuckMailConfig    *email.LuckMailConfig            `json:"luckmailConfig"`    // LuckMail 配置
 }
 
 // StartTask 公开方法（包装器）
@@ -60,6 +62,20 @@ func startTask(req StartTaskRequest) map[string]interface{} {
 			return map[string]interface{}{"error": "MoeMail 配置缺失"}
 		}
 		// MoeMail 不需要预先加载账号，每次任务动态生成
+	} else if emailProvider == "luckmail" {
+		// LuckMail 模式：验证配置
+		if req.LuckMailConfig == nil {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "LuckMail 配置缺失"}
+		}
+		if req.LuckMailConfig.Token == "" {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "LuckMail 接口秘钥未配置"}
+		}
+		if req.LuckMailConfig.ProjectCode == "" {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "LuckMail 项目代码未配置"}
+		}
 	} else {
 		// Outlook 模式：加载账号列表
 		storedAccounts := storage.GetAccountsCached()
@@ -193,6 +209,10 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		}
 
 		log.Printf("[Kiro] MoeMail 域名池: %v (共 %d 个域名)", moemailDomainPool, len(moemailDomainPool))
+	} else if emailProvider == "luckmail" {
+		taskConfig.UseLuckMail = true
+		taskConfig.LuckMailConfig = req.LuckMailConfig
+		log.Printf("[Kiro] LuckMail 模式: 项目=%s, 邮箱类型=%s", req.LuckMailConfig.ProjectCode, req.LuckMailConfig.EmailType)
 	} else if emailProvider == "outlook" {
 		taskConfig.UseOutlook = true
 	}
@@ -263,6 +283,22 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 			}
 			taskCfg.OutlookAccount = &acc
 			currentEmail = acc.Email
+		} else if emailProvider == "luckmail" {
+			// LuckMail 模式：创建接码订单获取邮箱
+			log.Printf("[Kiro][%d/%d] 创建 LuckMail 接码订单 (项目: %s)", i+1, req.Count, taskCfg.LuckMailConfig.ProjectCode)
+
+			provider, err := email.NewLuckMailProvider(*taskCfg.LuckMailConfig)
+			if err != nil {
+				log.Printf("[Kiro][%d/%d] LuckMail 创建订单失败: %v", i+1, req.Count, err)
+				Manager.mu.Lock()
+				Manager.completed++
+				Manager.failed++
+				Manager.mu.Unlock()
+				return
+			}
+
+			taskCfg.LuckMailProvider = provider
+			currentEmail = provider.GetAddress()
 		} else if emailProvider == "moemail" {
 			// MoeMail 模式：动态生成临时邮箱
 			// 从域名池中获取域名和配置
@@ -435,6 +471,25 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		if success {
 			if err := data.SaveKiroSuccess(result, outDir); err != nil {
 				log.Printf("[Kiro] 保存结果失败: %v", err)
+			}
+			// 获取订阅链接
+			if accessToken, ok := result["aws_token"].(map[string]interface{}); ok {
+				if token, ok := accessToken["accessToken"].(string); ok && token != "" {
+					go func(email string, token string) {
+						subscriptionLink, err := kiro.GetSubscriptionLink(token, "us-east-1")
+						if err != nil {
+							log.Printf("[Kiro] 获取订阅链接失败 (%s): %v", email, err)
+							return
+						}
+						log.Printf("[Kiro] 订阅链接获取成功 (%s): %s", email, subscriptionLink)
+						// 保存订阅链接到结果中
+						result["subscriptionLink"] = subscriptionLink
+						// 重新保存结果文件
+						if err := data.SaveKiroSuccess(result, outDir); err != nil {
+							log.Printf("[Kiro] 更新订阅链接失败: %v", err)
+						}
+					}(currentEmail, token)
+				}
 			}
 		}
 	}

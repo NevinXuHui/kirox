@@ -169,6 +169,20 @@ func (a *App) TestMoeMailConnection(configJSON string) map[string]interface{} {
 	return email.TestMoeMailConnection(configJSON)
 }
 
+// ---- LuckMail ----
+
+func (a *App) GetLuckMailConfigs() []email.LuckMailConfig {
+	return email.GetLuckMailConfigs()
+}
+
+func (a *App) SaveLuckMailConfigs(configsJSON string) map[string]interface{} {
+	return email.SaveLuckMailConfigs(configsJSON)
+}
+
+func (a *App) TestLuckMailConnection(configJSON string) map[string]interface{} {
+	return email.TestLuckMailConnection(configJSON)
+}
+
 // ---- Outlook ----
 
 func (a *App) AddOutlookAccounts(data string) map[string]interface{} {

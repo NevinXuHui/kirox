@@ -50,6 +50,10 @@ export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
 }
 
+export function GetLuckMailConfigs() {
+  return window['go']['main']['App']['GetLuckMailConfigs']();
+}
+
 export function GetMoeMailConfigs() {
   return window['go']['main']['App']['GetMoeMailConfigs']();
 }
@@ -114,6 +118,10 @@ export function ResetResultOutputDir() {
   return window['go']['main']['App']['ResetResultOutputDir']();
 }
 
+export function SaveLuckMailConfigs(arg1) {
+  return window['go']['main']['App']['SaveLuckMailConfigs'](arg1);
+}
+
 export function SaveMoeMailConfigs(arg1) {
   return window['go']['main']['App']['SaveMoeMailConfigs'](arg1);
 }
@@ -144,6 +152,10 @@ export function StartTask(arg1) {
 
 export function StopTask() {
   return window['go']['main']['App']['StopTask']();
+}
+
+export function TestLuckMailConnection(arg1) {
+  return window['go']['main']['App']['TestLuckMailConnection'](arg1);
 }
 
 export function TestMoeMailConnection(arg1) {

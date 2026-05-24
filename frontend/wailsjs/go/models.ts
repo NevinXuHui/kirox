@@ -1,5 +1,25 @@
 export namespace email {
 	
+	export class LuckMailConfig {
+	    name: string;
+	    token: string;
+	    projectCode: string;
+	    emailType: string;
+	    domain: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LuckMailConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.token = source["token"];
+	        this.projectCode = source["projectCode"];
+	        this.emailType = source["emailType"];
+	        this.domain = source["domain"];
+	    }
+	}
 	export class MoeMailConfig {
 	    name: string;
 	    url: string;
@@ -61,6 +81,7 @@ export namespace task {
 	    moemailDomains: string[];
 	    moemailConfigs: Record<string, Array<email.MoeMailConfig>>;
 	    moemailRandomMode: boolean;
+	    luckmailConfig?: email.LuckMailConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new StartTaskRequest(source);
@@ -76,6 +97,7 @@ export namespace task {
 	        this.moemailDomains = source["moemailDomains"];
 	        this.moemailConfigs = this.convertValues(source["moemailConfigs"], Array<email.MoeMailConfig>, true);
 	        this.moemailRandomMode = source["moemailRandomMode"];
+	        this.luckmailConfig = this.convertValues(source["luckmailConfig"], email.LuckMailConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

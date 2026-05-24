@@ -621,6 +621,15 @@
                   <span>MoeMail</span>
                 </div>
               </label>
+              <label style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all 0.2s;" onclick="selectEmailProvider('luckmail')">
+                <input type="radio" name="email-provider" value="luckmail" style="display:none;">
+                <div id="provider-luckmail" style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#f59e0b;">
+                    <path d="M22 17H2a3 3 0 003 3h14a3 3 0 003-3z"/><path d="M6 12V7a6 6 0 0112 0v5"/>
+                  </svg>
+                  <span>LuckMail</span>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -638,6 +647,20 @@
                 <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">加载中...</div>
               </div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">邮箱名将自动生成随机字符串</div>
+            </div>
+          </div>
+
+          <!-- LuckMail 配置选择 -->
+          <div id="luckmail-config-select" style="display:none;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#f59e0b;"><path d="M22 17H2a3 3 0 003 3h14a3 3 0 003-3z"/><path d="M6 12V7a6 6 0 0112 0v5"/></svg>
+                <span>选择配置</span>
+              </label>
+              <div id="luckmail-config-list" class="moemail-domains-container">
+                <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">加载中...</div>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">LuckMail 按成功接码收费，未收到验证码不扣费</div>
             </div>
           </div>
 
@@ -665,6 +688,77 @@
     <!-- ===== Page: 邮箱池 ===== -->
     <div class="page" id="page-accounts">
       <div class="page-scroll" style="max-width:800px;margin:0 auto;">
+
+        <!-- LuckMail 配置 -->
+        <div class="card" style="flex-shrink:0;margin-bottom:20px;">
+          <div class="settings-group">
+            <div class="settings-group-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#f59e0b;">
+                  <path d="M22 17H2a3 3 0 003 3h14a3 3 0 003-3z"/><path d="M6 12V7a6 6 0 0112 0v5"/>
+                </svg>
+                <span>LuckMail 接码平台</span>
+              </div>
+              <span id="settings-luckmail-summary" style="font-size:12px;font-weight:600;color:var(--text-muted);padding:4px 10px;background:var(--bg-subtle);border-radius:6px;">未配置</span>
+            </div>
+            <div class="moemail-add-section">
+              <div class="moemail-add-header">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span>添加新配置</span>
+              </div>
+              <div class="moemail-add-body">
+                <div class="moemail-input-row">
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>名称 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="luckmail-inline-name" placeholder="自动生成" class="form-input">
+                  </div>
+                  <div class="moemail-input-group" style="flex:3;">
+                    <label>接口秘钥</label>
+                    <input type="text" id="luckmail-inline-token" value="luck_a1209d58721677ccabdd828f0a7912da" class="form-input">
+                  </div>
+                </div>
+                <div class="moemail-input-row" style="margin-top:8px;">
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>项目代码</label>
+                    <input type="text" id="luckmail-inline-project" value="kiro" class="form-input">
+                  </div>
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>邮箱类型 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <select id="luckmail-inline-emailtype" class="form-input">
+                      <option value="">自动分配</option>
+                      <option value="ms_imap" selected>ms_imap (微软IMAP)</option>
+                      <option value="ms_graph">ms_graph (微软Graph)</option>
+                      <option value="google_variant">google_variant (谷歌变体)</option>
+                      <option value="self_built">self_built (自建域名)</option>
+                    </select>
+                  </div>
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>域名 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <select id="luckmail-inline-domain" class="form-input">
+                      <option value="">自动分配</option>
+                      <option value="hotmail.com" selected>hotmail.com</option>
+                      <option value="outlook.com">outlook.com</option>
+                      <option value="gmail.com">gmail.com</option>
+                      <option value="googlemail.com">googlemail.com</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="moemail-action-row">
+                  <button onclick="console.log('测试按钮被点击'); inlineTestLuckMail();" class="btn btn-secondary btn-sm" id="luckmail-inline-test-btn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    测试连接
+                  </button>
+                  <button onclick="console.log('添加按钮被点击'); inlineAddLuckMail();" class="btn btn-dark btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    添加配置
+                  </button>
+                  <span id="luckmail-inline-status" class="moemail-status-text"></span>
+                </div>
+              </div>
+            </div>
+            <div id="luckmail-inline-list" class="moemail-config-list"></div>
+          </div>
+        </div>
 
         <!-- MoeMail 配置 -->
         <div class="card" style="flex-shrink:0;margin-bottom:20px;">
@@ -863,12 +957,13 @@
   </div>
 </div>
 
+<script src="js/ui.js"></script>
 <script src="js/accounts.js"></script>
 <script src="js/moemail.js"></script>
+<script src="js/luckmail.js"></script>
 <script src="js/task.js"></script>
 <script src="js/overview.js"></script>
 <script src="js/subscription.js"></script>
-<script src="js/ui.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

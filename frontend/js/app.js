@@ -313,6 +313,16 @@ function getFormConfig() {
     }
   }
 
+  // 如果选择了 LuckMail，添加配置信息
+  if (config.emailProvider === 'luckmail') {
+    if (!luckmailConfigs || luckmailConfigs.length === 0) {
+      throw new Error('请先在邮箱池页面添加 LuckMail 配置');
+    }
+    var idx = selectedLuckMailConfigIdx || 0;
+    if (idx >= luckmailConfigs.length) idx = 0;
+    config.luckmailConfig = luckmailConfigs[idx];
+  }
+
   return config;
 }
 

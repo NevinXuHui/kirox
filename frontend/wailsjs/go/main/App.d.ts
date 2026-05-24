@@ -28,6 +28,8 @@ export function GetLicenseInfo():Promise<Record<string, any>>;
 
 export function GetLogs():Promise<Array<string>>;
 
+export function GetLuckMailConfigs():Promise<Array<email.LuckMailConfig>>;
+
 export function GetMoeMailConfigs():Promise<Array<email.MoeMailConfig>>;
 
 export function GetOutlookAccounts():Promise<Array<Record<string, any>>>;
@@ -60,6 +62,8 @@ export function ResetProxy():Promise<Record<string, any>>;
 
 export function ResetResultOutputDir():Promise<Record<string, any>>;
 
+export function SaveLuckMailConfigs(arg1:string):Promise<Record<string, any>>;
+
 export function SaveMoeMailConfigs(arg1:string):Promise<Record<string, any>>;
 
 export function SelectDirectory():Promise<string>;
@@ -75,6 +79,8 @@ export function SetResultOutputDir(arg1:string):Promise<Record<string, any>>;
 export function StartTask(arg1:task.StartTaskRequest):Promise<Record<string, any>>;
 
 export function StopTask():Promise<Record<string, any>>;
+
+export function TestLuckMailConnection(arg1:string):Promise<Record<string, any>>;
 
 export function TestMoeMailConnection(arg1:string):Promise<Record<string, any>>;
 

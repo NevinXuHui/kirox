@@ -287,11 +287,17 @@ func (r *Registrar) Step2Device() error {
 	return nil
 }
 
-// Step3Email 获取邮箱 (临时邮箱、Outlook)
+// Step3Email 获取邮箱 (临时邮箱、Outlook、LuckMail)
 func (r *Registrar) Step3Email() error {
 	if r.Cfg.UseOutlook && r.Cfg.OutlookAccount != nil {
 		log.Println("[3] 使用 Outlook 邮箱")
 		r.Email = r.Cfg.OutlookAccount.Email
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
+	if r.Cfg.UseLuckMail && r.Cfg.LuckMailProvider != nil {
+		log.Println("[3] 使用 LuckMail 邮箱")
+		r.Email = r.Cfg.LuckMailProvider.GetAddress()
 		log.Printf("email=%s", r.Email)
 		return nil
 	}
