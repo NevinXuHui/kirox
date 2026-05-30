@@ -169,6 +169,20 @@ func (a *App) TestMoeMailConnection(configJSON string) map[string]interface{} {
 	return email.TestMoeMailConnection(configJSON)
 }
 
+// ---- CloudMail ----
+
+func (a *App) GetCloudMailConfigs() []email.CloudMailConfig {
+	return email.GetCloudMailConfigs()
+}
+
+func (a *App) SaveCloudMailConfigs(configsJSON string) map[string]interface{} {
+	return email.SaveCloudMailConfigs(configsJSON)
+}
+
+func (a *App) TestCloudMailConnection(configJSON string) map[string]interface{} {
+	return email.TestCloudMailConnection(configJSON)
+}
+
 // ---- Outlook ----
 
 func (a *App) AddOutlookAccounts(data string) map[string]interface{} {
@@ -304,6 +318,24 @@ func (a *App) DetectProxy(raw string) proxy.Info {
 func (a *App) ResetProxy() map[string]interface{} {
 	storage.ResetProxy()
 	return map[string]interface{}{"success": true}
+}
+
+// GetLanguage 获取当前界面语言代码，空字符串表示未设置（前端应回落到 OS 语言）
+func (a *App) GetLanguage() string {
+	return storage.GetLanguage()
+}
+
+// SetLanguage 保存界面语言；仅接受 "zh"/"en"/"ja"
+func (a *App) SetLanguage(lang string) map[string]interface{} {
+	if err := storage.SetLanguage(lang); err != nil {
+		return map[string]interface{}{"error": err.Error()}
+	}
+	return map[string]interface{}{"success": true, "language": lang}
+}
+
+// GetOSLanguage 返回操作系统语言代码 "zh"/"en"/"ja"，用于首次启动自动选语言
+func (a *App) GetOSLanguage() string {
+	return detectOSLanguage()
 }
 
 // StartTask 启动注册任务

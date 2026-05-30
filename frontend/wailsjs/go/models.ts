@@ -1,5 +1,25 @@
 export namespace email {
 	
+	export class CloudMailConfig {
+	    name: string;
+	    url: string;
+	    email: string;
+	    password: string;
+	    domains: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CloudMailConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.email = source["email"];
+	        this.password = source["password"];
+	        this.domains = source["domains"];
+	    }
+	}
 	export class MoeMailConfig {
 	    name: string;
 	    url: string;
@@ -61,6 +81,9 @@ export namespace task {
 	    moemailDomains: string[];
 	    moemailConfigs: Record<string, Array<email.MoeMailConfig>>;
 	    moemailRandomMode: boolean;
+	    cloudmailDomains: string[];
+	    cloudmailConfigs: Record<string, Array<email.CloudMailConfig>>;
+	    cloudmailRandomMode: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new StartTaskRequest(source);
@@ -76,6 +99,9 @@ export namespace task {
 	        this.moemailDomains = source["moemailDomains"];
 	        this.moemailConfigs = this.convertValues(source["moemailConfigs"], Array<email.MoeMailConfig>, true);
 	        this.moemailRandomMode = source["moemailRandomMode"];
+	        this.cloudmailDomains = source["cloudmailDomains"];
+	        this.cloudmailConfigs = this.convertValues(source["cloudmailConfigs"], Array<email.CloudMailConfig>, true);
+	        this.cloudmailRandomMode = source["cloudmailRandomMode"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

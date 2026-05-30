@@ -15,6 +15,7 @@ const (
 	keyDataDir         = "data_dir"
 	keyResultOutputDir = "result_output_dir"
 	keyProxy           = "proxy"
+	keyLanguage        = "language"
 )
 
 var (
@@ -24,6 +25,8 @@ var (
 	_resultOutputOnce sync.Once
 	_proxy            string
 	_proxyOnce        sync.Once
+	_language         string
+	_languageOnce     sync.Once
 )
 
 // GetDefaultDataDir 获取默认应用数据目录
@@ -76,7 +79,7 @@ func loadConfigMap() map[string]string {
 func saveConfigMap(m map[string]string) error {
 	os.MkdirAll(GetDefaultDataDir(), 0755)
 	var b strings.Builder
-	for _, k := range []string{keyDataDir, keyResultOutputDir, keyProxy} {
+	for _, k := range []string{keyDataDir, keyResultOutputDir, keyProxy, keyLanguage} {
 		if v := strings.TrimSpace(m[k]); v != "" {
 			b.WriteString(k)
 			b.WriteByte('=')
@@ -263,6 +266,32 @@ func ResetProxy() {
 	_proxy = ""
 	_proxyOnce = sync.Once{}
 	_proxyOnce.Do(func() {})
+}
+
+// GetLanguage 返回当前界面语言代码（"zh"/"en"/"ja"），未设置时返回空字符串。
+func GetLanguage() string {
+	_languageOnce.Do(func() {
+		m := loadConfigMap()
+		_language = strings.TrimSpace(m[keyLanguage])
+	})
+	return _language
+}
+
+// SetLanguage 持久化界面语言；仅接受 "zh"/"en"/"ja"，其他值返回错误。
+func SetLanguage(lang string) error {
+	lang = strings.TrimSpace(lang)
+	if lang != "zh" && lang != "en" && lang != "ja" {
+		return fmt.Errorf("不支持的语言: %s", lang)
+	}
+	m := loadConfigMap()
+	m[keyLanguage] = lang
+	if err := saveConfigMap(m); err != nil {
+		return err
+	}
+	_language = lang
+	_languageOnce = sync.Once{}
+	_languageOnce.Do(func() {})
+	return nil
 }
 
 // NormalizeProxyAddress 归一化常见代理写法为完整 URL:

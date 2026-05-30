@@ -22,10 +22,14 @@ type StartTaskRequest struct {
 	Concurrency       int                              `json:"concurrency"`
 	Delay             int                              `json:"delay"`
 	OutputPath        string                           `json:"outputPath"`
-	EmailProvider     string                           `json:"emailProvider"`     // "outlook" 或 "moemail"
+	EmailProvider     string                           `json:"emailProvider"`     // "outlook" / "moemail" / "cloudmail"
 	MoeMailDomains    []string                         `json:"moemailDomains"`    // 选中的域名列表
 	MoeMailConfigs    map[string][]email.MoeMailConfig `json:"moemailConfigs"`    // 域名 -> 配置列表映射
 	MoeMailRandomMode bool                             `json:"moemailRandomMode"` // 是否为随机模式
+
+	CloudMailDomains    []string                            `json:"cloudmailDomains"`
+	CloudMailConfigs    map[string][]email.CloudMailConfig  `json:"cloudmailConfigs"`
+	CloudMailRandomMode bool                                `json:"cloudmailRandomMode"`
 }
 
 // StartTask 公开方法（包装器）
@@ -60,6 +64,15 @@ func startTask(req StartTaskRequest) map[string]interface{} {
 			return map[string]interface{}{"error": "MoeMail 配置缺失"}
 		}
 		// MoeMail 不需要预先加载账号，每次任务动态生成
+	} else if emailProvider == "cloudmail" {
+		if len(req.CloudMailDomains) == 0 {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "请选择至少一个 cloud-mail 域名"}
+		}
+		if len(req.CloudMailConfigs) == 0 {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "cloud-mail 配置缺失"}
+		}
 	} else {
 		// Outlook 模式：加载账号列表
 		storedAccounts := storage.GetAccountsCached()
@@ -197,6 +210,25 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		taskConfig.UseOutlook = true
 	}
 
+	// 预先准备 CloudMail 域名池
+	var cloudmailDomainPool []string
+	var cloudmailDomainConfigs map[string][]email.CloudMailConfig
+	if emailProvider == "cloudmail" {
+		taskConfig.UseCloudMail = true
+		cloudmailDomainPool = req.CloudMailDomains
+		cloudmailDomainConfigs = req.CloudMailConfigs
+
+		if len(cloudmailDomainPool) == 0 || len(cloudmailDomainConfigs) == 0 {
+			log.Println("[Kiro] cloud-mail 域名或配置为空，任务终止")
+			Manager.mu.Lock()
+			Manager.running = false
+			Manager.mu.Unlock()
+			return
+		}
+
+		log.Printf("[Kiro] cloud-mail 域名池: %v (共 %d 个域名)", cloudmailDomainPool, len(cloudmailDomainPool))
+	}
+
 	// 统计计数器
 	var statsMu sync.Mutex
 	var taskDurations []float64
@@ -233,6 +265,25 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		}
 
 		configs := moemailDomainConfigs[domain]
+		return domain, configs[rand.Intn(len(configs))]
+	}
+
+	// CloudMail 域名池索引（并发安全）
+	var cloudmailDomainIdx int
+	var cloudmailDomainMu sync.Mutex
+	nextCloudMailDomain := func() (string, email.CloudMailConfig) {
+		cloudmailDomainMu.Lock()
+		defer cloudmailDomainMu.Unlock()
+
+		var domain string
+		if req.CloudMailRandomMode {
+			domain = cloudmailDomainPool[rand.Intn(len(cloudmailDomainPool))]
+		} else {
+			domain = cloudmailDomainPool[cloudmailDomainIdx%len(cloudmailDomainPool)]
+			cloudmailDomainIdx++
+		}
+
+		configs := cloudmailDomainConfigs[domain]
 		return domain, configs[rand.Intn(len(configs))]
 	}
 
@@ -288,6 +339,26 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 			}
 
 			taskCfg.MoeMailProvider = provider
+			currentEmail = provider.GetAddress()
+		} else if emailProvider == "cloudmail" {
+			domain, config := nextCloudMailDomain()
+			emailName := email.GenerateEmailName(i)
+
+			log.Printf("[Kiro][%d/%d] 创建 cloud-mail 邮箱: %s@%s (配置: %s)", i+1, req.Count, emailName, domain, config.Name)
+
+			provider, err := email.NewCloudMailProvider(config, emailName, domain)
+			if err != nil {
+				log.Printf("[Kiro][%d/%d] 生成 cloud-mail 邮箱失败: %v", i+1, req.Count, err)
+				Manager.mu.Lock()
+				Manager.completed++
+				Manager.failed++
+				Manager.mu.Unlock()
+				return
+			}
+
+			taskCfg.CloudMailProvider = provider
+			cfgCopy := config
+			taskCfg.CloudMailConfig = &cfgCopy
 			currentEmail = provider.GetAddress()
 		}
 

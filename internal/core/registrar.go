@@ -295,6 +295,20 @@ func (r *Registrar) Step3Email() error {
 		log.Printf("email=%s", r.Email)
 		return nil
 	}
+	if r.Cfg.UseCloudMail && r.Cfg.CloudMailProvider != nil {
+		log.Println("[3] 使用 Cloud-Mail 邮箱")
+		r.EmailSvc = email.NewCloudMailService(r.Cfg.CloudMailProvider)
+		r.Email = r.EmailSvc.GetAddress()
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
+	if r.Cfg.UseMoeMail && r.Cfg.MoeMailProvider != nil {
+		log.Println("[3] 使用 MoeMail 邮箱（已创建）")
+		r.EmailSvc = email.NewMoEmailServiceFromProvider(r.Cfg.MoeMailProvider)
+		r.Email = r.EmailSvc.GetAddress()
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
 	log.Println("[3] 创建临时邮箱")
 	// 如果未配置 MoEmail URL，从已保存的 MoeMail 配置中自动读取
 	baseURL := r.Cfg.MoEmailBaseURL

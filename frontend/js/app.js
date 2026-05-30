@@ -1,8 +1,17 @@
 // ===== 核心：导航 / 标签页 / 下拉框 / 配置 / 卡密 / Toast / 窗口控制 =====
 
 // 页面切换
-var pageTitles = { overview: '概览', logs: '运行日志', register: '注册', accounts: '邮箱池', subscription: '获取订阅支付链接', info: '关于', settings: '设置' };
+var _currentPageId = 'overview';
+function getPageTitle(pageId) {
+  if (window.I18N && pageId) {
+    var v = window.I18N.t('page.' + pageId);
+    if (v && v !== 'page.' + pageId) return v;
+  }
+  var fallback = { overview: '概览', logs: '运行日志', register: '注册', accounts: '邮箱池', subscription: '订阅', info: '关于', settings: '设置' };
+  return fallback[pageId] || pageId;
+}
 function switchPage(pageId) {
+  _currentPageId = pageId;
   document.querySelectorAll('.page, .page-placeholder, .page-iframe').forEach(function(p) {
     p.classList.remove('active');
   });
@@ -11,7 +20,7 @@ function switchPage(pageId) {
   document.querySelectorAll('.nav-item[data-page]').forEach(function(item) {
     item.classList.toggle('active', item.getAttribute('data-page') === pageId);
   });
-  document.getElementById('titlebar-text').textContent = pageTitles[pageId] || pageId;
+  document.getElementById('titlebar-text').textContent = getPageTitle(pageId);
   if (pageId === 'overview') {
     startOverviewTimer();
   } else {
@@ -86,11 +95,11 @@ async function loadInfoVersion() {
   var latestEl = document.getElementById('info-latest-version');
   var dateEl = document.getElementById('info-release-date');
   var tagEl = document.getElementById('info-changelog-version');
-  if (changelogEl) changelogEl.innerHTML = '<span style="color:var(--text-muted);">加载中...</span>';
+  if (changelogEl) changelogEl.innerHTML = '<span style="color:var(--text-muted);">' + tr('common.loading', '加载中...') + '</span>';
   try {
     var result = await window.go.main.App.CheckUpdate();
     if (result.error) {
-      if (changelogEl) changelogEl.innerHTML = '<span style="color:var(--text-muted);">加载失败: ' + result.error + '</span>';
+      if (changelogEl) changelogEl.innerHTML = '<span style="color:var(--text-muted);">' + tr('common.loadFailed', '加载失败') + ': ' + result.error + '</span>';
       return;
     }
     if (latestEl) {
@@ -105,11 +114,20 @@ async function loadInfoVersion() {
     if (bannerVer) bannerVer.textContent = result.latestVersion || '';
     if (changelogEl) {
       var body = (result.changelog || '').trim();
-      changelogEl.innerHTML = body ? renderChangelog(body) : '<span style="color:var(--text-muted);">暂无更新说明</span>';
+      changelogEl.innerHTML = body ? renderChangelog(body) : '<span style="color:var(--text-muted);">' + tr('common.noData', '暂无更新说明') + '</span>';
     }
   } catch(e) {
-    if (changelogEl) changelogEl.innerHTML = '<span style="color:var(--text-muted);">加载失败</span>';
+    if (changelogEl) changelogEl.innerHTML = '<span style="color:var(--text-muted);">' + tr('common.loadFailed', '加载失败') + '</span>';
   }
+}
+
+// 翻译辅助：t() 返回 key 自身时回落到 fallback
+function tr(key, fallback) {
+  if (window.I18N && typeof window.I18N.t === 'function') {
+    var v = window.I18N.t(key);
+    if (v && v !== key) return v;
+  }
+  return fallback != null ? fallback : key;
 }
 
 // 存储目录设置
@@ -130,9 +148,9 @@ async function selectDataDir() {
       return;
     }
     document.getElementById('cfg-data-dir').value = result.path;
-    showToast('存储目录已更新，重启后完全生效');
+    showToast(tr('toast.dataDirSet', '存储目录已设置'));
   } catch(e) {
-    showToast('设置失败: ' + e.message, 'error');
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
   }
 }
 
@@ -144,9 +162,9 @@ async function resetDataDir() {
       return;
     }
     document.getElementById('cfg-data-dir').value = result.path;
-    showToast('已恢复默认存储目录');
+    showToast(tr('toast.dataDirReset', '已重置为默认存储目录'));
   } catch(e) {
-    showToast('重置失败: ' + e.message, 'error');
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
   }
 }
 
@@ -169,9 +187,9 @@ async function selectResultOutputDir() {
       return;
     }
     document.getElementById('cfg-result-output-dir').value = result.path;
-    showToast('注册结果将写入: ' + result.path);
+    showToast(tr('toast.outputDirSet', '输出目录已设置') + ': ' + result.path);
   } catch(e) {
-    showToast('设置失败: ' + e.message, 'error');
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
   }
 }
 
@@ -183,9 +201,9 @@ async function resetResultOutputDir() {
       return;
     }
     document.getElementById('cfg-result-output-dir').value = result.path;
-    showToast('已恢复默认输出目录');
+    showToast(tr('toast.outputDirReset', '已重置为默认输出目录'));
   } catch(e) {
-    showToast('重置失败: ' + e.message, 'error');
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
   }
 }
 
@@ -242,15 +260,15 @@ async function saveProxy() {
     el.value = result.proxy || '';
     if (!result.proxy) {
       renderProxyDetectCard('hidden');
-      showToast('已清空代理（直连）');
+      showToast(tr('toast.proxyCleared', '代理已清除'));
       return;
     }
-    showToast('代理已保存');
+    showToast(tr('toast.proxySaved', '代理已保存'));
     var d = result.detect;
     if (d && d.ok) renderProxyDetectCard('ok', d);
     else renderProxyDetectCard('error', d || {});
   } catch(e) {
-    showToast('保存失败: ' + e.message, 'error');
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
     renderProxyDetectCard('error', { error: e.message });
   }
 }
@@ -261,9 +279,9 @@ async function resetProxy() {
     var el = document.getElementById('cfg-proxy');
     if (el) el.value = '';
     renderProxyDetectCard('hidden');
-    showToast('已清空代理（直连）');
+    showToast(tr('toast.proxyCleared', '代理已清除'));
   } catch(e) {
-    showToast('清空失败: ' + e.message, 'error');
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
   }
 }
 
@@ -310,6 +328,32 @@ function getFormConfig() {
         }
       });
       config.moemailRandomMode = false;
+    }
+  }
+
+  // 如果选择了 Cloud-Mail，添加域名信息和配置
+  if (config.emailProvider === 'cloudmail') {
+    if (!selectedCloudMailDomains || selectedCloudMailDomains.length === 0) {
+      throw new Error('请选择至少一个 Cloud-Mail 域名');
+    }
+
+    if (selectedCloudMailDomains.includes('__random__') || selectedCloudMailDomains.includes('__all__')) {
+      config.cloudmailDomains = allCloudMailDomains.map(item => item.domain);
+      config.cloudmailConfigs = {};
+      allCloudMailDomains.forEach(item => {
+        config.cloudmailConfigs[item.domain] = item.configs;
+      });
+      config.cloudmailRandomMode = selectedCloudMailDomains.includes('__random__');
+    } else {
+      config.cloudmailDomains = selectedCloudMailDomains;
+      config.cloudmailConfigs = {};
+      selectedCloudMailDomains.forEach(domain => {
+        const item = allCloudMailDomains.find(d => d.domain === domain);
+        if (item) {
+          config.cloudmailConfigs[domain] = item.configs;
+        }
+      });
+      config.cloudmailRandomMode = false;
     }
   }
 
@@ -422,9 +466,66 @@ async function loadConfig() {
 window.addEventListener('DOMContentLoaded', async function() {
   await loadConfig();
   initEmailProviderSelection();
+  // 初始化 i18n（在 Wails runtime 就绪后），失败时不阻塞主流程
+  try {
+    if (window.I18N && typeof window.I18N.init === 'function') {
+      await window.I18N.init();
+      var sel = document.getElementById('cfg-language');
+      if (sel) sel.value = window.I18N.getLanguage();
+      refreshLanguageNavLabel();
+      // 重新渲染依赖 i18n 的动态文本
+      var tb = document.getElementById('titlebar-text');
+      if (tb) tb.textContent = getPageTitle(_currentPageId);
+    }
+  } catch(e) {}
+  // 语言切换时刷新动态文本
+  window.addEventListener('i18n:changed', function() {
+    var tb = document.getElementById('titlebar-text');
+    if (tb) tb.textContent = getPageTitle(_currentPageId);
+    refreshLanguageNavLabel();
+  });
   // 启动时静默检查更新
   setTimeout(checkUpdateOnStartup, 2000);
 });
+
+// 语言切换（设置页下拉）
+async function onLanguageChange(lang) {
+  if (!lang || !window.I18N) return;
+  try {
+    window.I18N.setLanguage(lang);
+    showToast(tr('toast.languageChanged', '已切换语言'));
+  } catch(e) {
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
+  }
+}
+
+// 语言循环切换（侧栏点击）：zh → en → ja → zh
+var _langOrder = ['zh', 'en', 'ja'];
+var _langLabel = { zh: '中', en: 'EN', ja: 'あ' };
+var _langFlag = { zh: 'cn', en: 'us', ja: 'jp' };
+function cycleLanguage() {
+  if (!window.I18N) return;
+  var cur = window.I18N.getLanguage();
+  var idx = _langOrder.indexOf(cur);
+  var next = _langOrder[(idx + 1) % _langOrder.length];
+  try {
+    window.I18N.setLanguage(next);
+    showToast(tr('toast.languageChanged', '已切换语言'));
+  } catch(e) {
+    showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
+  }
+}
+function refreshLanguageNavLabel() {
+  var el = document.getElementById('nav-language-label');
+  if (!el || !window.I18N) return;
+  var cur = window.I18N.getLanguage();
+  if (el.tagName === 'IMG') {
+    el.src = 'https://flagcdn.com/w40/' + (_langFlag[cur] || 'cn') + '.png';
+    el.alt = cur;
+  } else {
+    el.textContent = _langLabel[cur] || cur;
+  }
+}
 
 async function checkUpdateOnStartup() {
   try {

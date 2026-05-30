@@ -38,8 +38,16 @@ export function DownloadUpdate() {
   return window['go']['main']['App']['DownloadUpdate']();
 }
 
+export function GetCloudMailConfigs() {
+  return window['go']['main']['App']['GetCloudMailConfigs']();
+}
+
 export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
+}
+
+export function GetLanguage() {
+  return window['go']['main']['App']['GetLanguage']();
 }
 
 export function GetLicenseInfo() {
@@ -52,6 +60,10 @@ export function GetLogs() {
 
 export function GetMoeMailConfigs() {
   return window['go']['main']['App']['GetMoeMailConfigs']();
+}
+
+export function GetOSLanguage() {
+  return window['go']['main']['App']['GetOSLanguage']();
 }
 
 export function GetOutlookAccounts() {
@@ -114,6 +126,10 @@ export function ResetResultOutputDir() {
   return window['go']['main']['App']['ResetResultOutputDir']();
 }
 
+export function SaveCloudMailConfigs(arg1) {
+  return window['go']['main']['App']['SaveCloudMailConfigs'](arg1);
+}
+
 export function SaveMoeMailConfigs(arg1) {
   return window['go']['main']['App']['SaveMoeMailConfigs'](arg1);
 }
@@ -130,6 +146,10 @@ export function SetDataDir(arg1) {
   return window['go']['main']['App']['SetDataDir'](arg1);
 }
 
+export function SetLanguage(arg1) {
+  return window['go']['main']['App']['SetLanguage'](arg1);
+}
+
 export function SetProxy(arg1) {
   return window['go']['main']['App']['SetProxy'](arg1);
 }
@@ -144,6 +164,10 @@ export function StartTask(arg1) {
 
 export function StopTask() {
   return window['go']['main']['App']['StopTask']();
+}
+
+export function TestCloudMailConnection(arg1) {
+  return window['go']['main']['App']['TestCloudMailConnection'](arg1);
 }
 
 export function TestMoeMailConnection(arg1) {

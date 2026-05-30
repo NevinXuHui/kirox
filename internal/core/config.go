@@ -34,6 +34,10 @@ type Config struct {
 	MoeMailConfig   *email.MoeMailConfig
 	MoeMailProvider *email.MoeMailProvider
 
+	UseCloudMail      bool
+	CloudMailConfig   *email.CloudMailConfig
+	CloudMailProvider *email.CloudMailProvider
+
 	MoEmailBaseURL string
 	MoEmailAPIKey  string
 }
