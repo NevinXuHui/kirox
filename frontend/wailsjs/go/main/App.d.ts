@@ -30,6 +30,8 @@ export function GetLogs():Promise<Array<string>>;
 
 export function GetLuckMailConfigs():Promise<Array<email.LuckMailConfig>>;
 
+export function GetLuckMailDomains(arg1:string):Promise<Record<string, any>>;
+
 export function GetMoeMailConfigs():Promise<Array<email.MoeMailConfig>>;
 
 export function GetOutlookAccounts():Promise<Array<Record<string, any>>>;
@@ -37,6 +39,8 @@ export function GetOutlookAccounts():Promise<Array<Record<string, any>>>;
 export function GetOverview():Promise<Record<string, any>>;
 
 export function GetProxy():Promise<string>;
+
+export function GetProxyPool():Promise<Array<string>>;
 
 export function GetResultOutputDir():Promise<string>;
 
@@ -47,6 +51,10 @@ export function GetSubscriptionLink(arg1:string,arg2:string):Promise<Record<stri
 export function GetSubscriptionPlans(arg1:string):Promise<Record<string, any>>;
 
 export function GetTaskStatus():Promise<Record<string, any>>;
+
+export function GetTempMailLolConfigs():Promise<Array<email.TempMailLolConfig>>;
+
+export function GetYYDSMailConfigs():Promise<Array<email.YYDSMailConfig>>;
 
 export function ImportOutlookFile(arg1:string):Promise<Record<string, any>>;
 
@@ -60,11 +68,17 @@ export function ResetDataDir():Promise<Record<string, any>>;
 
 export function ResetProxy():Promise<Record<string, any>>;
 
+export function ResetProxyPool():Promise<Record<string, any>>;
+
 export function ResetResultOutputDir():Promise<Record<string, any>>;
 
 export function SaveLuckMailConfigs(arg1:string):Promise<Record<string, any>>;
 
 export function SaveMoeMailConfigs(arg1:string):Promise<Record<string, any>>;
+
+export function SaveTempMailLolConfigs(arg1:string):Promise<Record<string, any>>;
+
+export function SaveYYDSMailConfigs(arg1:string):Promise<Record<string, any>>;
 
 export function SelectDirectory():Promise<string>;
 
@@ -73,6 +87,8 @@ export function SelectOutlookFile():Promise<string>;
 export function SetDataDir(arg1:string):Promise<Record<string, any>>;
 
 export function SetProxy(arg1:string):Promise<Record<string, any>>;
+
+export function SetProxyPool(arg1:string):Promise<Record<string, any>>;
 
 export function SetResultOutputDir(arg1:string):Promise<Record<string, any>>;
 
@@ -83,5 +99,11 @@ export function StopTask():Promise<Record<string, any>>;
 export function TestLuckMailConnection(arg1:string):Promise<Record<string, any>>;
 
 export function TestMoeMailConnection(arg1:string):Promise<Record<string, any>>;
+
+export function TestProxyPool(arg1:string):Promise<Record<string, any>>;
+
+export function TestTempMailLolConnection(arg1:string):Promise<Record<string, any>>;
+
+export function TestYYDSMailConnection(arg1:string):Promise<Record<string, any>>;
 
 export function VerifyLicense(arg1:string):Promise<Record<string, any>>;

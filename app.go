@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"log"
 	"os"
@@ -31,6 +32,11 @@ func (a *App) startup(ctx context.Context) {
 	// 重定向日志到内存
 	log.SetOutput(&logWriter{app: a})
 	log.SetFlags(log.Ltime)
+
+	// 加载累计统计数据
+	stats := storage.LoadStats()
+	task.Manager.LoadCumulativeStats(stats.TotalCompleted, stats.TotalSuccess, stats.TotalFailed)
+	log.Printf("[Kiro] 已加载累计统计: 完成=%d, 成功=%d, 失败=%d", stats.TotalCompleted, stats.TotalSuccess, stats.TotalFailed)
 
 	// 居中显示窗口
 	go func() {
@@ -84,11 +90,14 @@ func (a *App) GetOverview() map[string]interface{} {
 	return map[string]interface{}{
 		"version": updater.GetCurrentVersion(),
 		"kiro": map[string]interface{}{
-			"taskRunning":   taskStatus["running"],
-			"taskSuccess":   taskStatus["success"],
-			"taskFailed":    taskStatus["failed"],
-			"taskCompleted": taskStatus["completed"],
-			"taskTotal":     taskStatus["total"],
+			"taskRunning":         taskStatus["running"],
+			"taskSuccess":         taskStatus["success"],
+			"taskFailed":          taskStatus["failed"],
+			"taskCompleted":       taskStatus["completed"],
+			"taskTotal":           taskStatus["total"],
+			"cumulativeSuccess":   taskStatus["cumulativeSuccess"],
+			"cumulativeFailed":    taskStatus["cumulativeFailed"],
+			"cumulativeCompleted": taskStatus["cumulativeCompleted"],
 		},
 		"outlook": map[string]interface{}{
 			"total":      outlookTotal,
@@ -104,11 +113,14 @@ func (a *App) GetTaskStatus() map[string]interface{} {
 	taskStatus := task.Manager.GetStatus()
 	return map[string]interface{}{
 		"kiro": map[string]interface{}{
-			"taskRunning":   taskStatus["running"],
-			"taskSuccess":   taskStatus["success"],
-			"taskFailed":    taskStatus["failed"],
-			"taskCompleted": taskStatus["completed"],
-			"taskTotal":     taskStatus["total"],
+			"taskRunning":         taskStatus["running"],
+			"taskSuccess":         taskStatus["success"],
+			"taskFailed":          taskStatus["failed"],
+			"taskCompleted":       taskStatus["completed"],
+			"taskTotal":           taskStatus["total"],
+			"cumulativeSuccess":   taskStatus["cumulativeSuccess"],
+			"cumulativeFailed":    taskStatus["cumulativeFailed"],
+			"cumulativeCompleted": taskStatus["cumulativeCompleted"],
 		},
 	}
 }
@@ -181,6 +193,88 @@ func (a *App) SaveLuckMailConfigs(configsJSON string) map[string]interface{} {
 
 func (a *App) TestLuckMailConnection(configJSON string) map[string]interface{} {
 	return email.TestLuckMailConnection(configJSON)
+}
+
+func (a *App) GetLuckMailDomains(configJSON string) map[string]interface{} {
+	return email.GetLuckMailDomains(configJSON)
+}
+
+// ---- YYDS Mail ----
+
+func (a *App) GetYYDSMailConfigs() []email.YYDSMailConfig {
+	return email.GetYYDSMailConfigs()
+}
+
+func (a *App) SaveYYDSMailConfigs(configsJSON string) map[string]interface{} {
+	return email.SaveYYDSMailConfigs(configsJSON)
+}
+
+func (a *App) TestYYDSMailConnection(configJSON string) map[string]interface{} {
+	return email.TestYYDSMailConnection(configJSON)
+}
+
+// ---- TempMail.lol ----
+
+func (a *App) GetTempMailLolConfigs() []email.TempMailLolConfig {
+	return email.GetTempMailLolConfigs()
+}
+
+func (a *App) SaveTempMailLolConfigs(configsJSON string) map[string]interface{} {
+	return email.SaveTempMailLolConfigs(configsJSON)
+}
+
+func (a *App) TestTempMailLolConnection(configJSON string) map[string]interface{} {
+	return email.TestTempMailLolConnection(configJSON)
+}
+
+// ---- 代理池 ----
+
+func (a *App) GetProxyPool() []string {
+	return storage.GetProxyPool()
+}
+
+func (a *App) SetProxyPool(proxiesJSON string) map[string]interface{} {
+	var proxies []string
+	if err := json.Unmarshal([]byte(proxiesJSON), &proxies); err != nil {
+		return map[string]interface{}{"error": "配置格式错误: " + err.Error()}
+	}
+
+	if err := storage.SetProxyPool(proxies); err != nil {
+		return map[string]interface{}{"error": "保存失败: " + err.Error()}
+	}
+
+	return map[string]interface{}{"success": true}
+}
+
+func (a *App) ResetProxyPool() map[string]interface{} {
+	storage.ResetProxyPool()
+	return map[string]interface{}{"success": true}
+}
+
+func (a *App) TestProxyPool(proxiesJSON string) map[string]interface{} {
+	var proxies []string
+	if err := json.Unmarshal([]byte(proxiesJSON), &proxies); err != nil {
+		return map[string]interface{}{"error": "配置格式错误: " + err.Error()}
+	}
+
+	testCount := len(proxies)
+	if testCount > 10 {
+		testCount = 10
+	}
+
+	results := make([]proxy.Info, 0, testCount)
+	for i := 0; i < testCount; i++ {
+		proxyURL := proxies[i]
+		result := proxy.Detect(proxyURL)
+		results = append(results, result)
+	}
+
+	return map[string]interface{}{
+		"success": true,
+		"results": results,
+		"total":   len(proxies),
+		"tested":  testCount,
+	}
 }
 
 // ---- Outlook ----

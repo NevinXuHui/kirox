@@ -60,6 +60,11 @@ func (r *Registrar) Step6SubmitEmail() (string, error) {
 		r.WorkflowHandle = wh
 	}
 
+	// 记录详细的响应信息用于诊断
+	if r.Cfg.Debug {
+		log.Printf("[DEBUG] Step6SubmitEmail: status=%d, body=%s", status, string(body)[:min(500, len(body))])
+	}
+
 	if status == 400 {
 		return "signup", nil
 	} else if status == 200 {
@@ -309,6 +314,22 @@ func (r *Registrar) Step10GetOTP() (string, error) {
 	}
 	if r.Cfg.UseLuckMail && r.Cfg.LuckMailProvider != nil {
 		code, err := r.Cfg.LuckMailProvider.WaitForCode(120, 3)
+		if err != nil {
+			return "", err
+		}
+		log.Printf("验证码: %s", code)
+		return code, nil
+	}
+	if r.Cfg.UseYYDSMail && r.Cfg.YYDSMailProvider != nil {
+		code, err := r.Cfg.YYDSMailProvider.WaitForCode(120, 3)
+		if err != nil {
+			return "", err
+		}
+		log.Printf("验证码: %s", code)
+		return code, nil
+	}
+	if r.Cfg.UseTempMailLol && r.Cfg.TempMailLolProvider != nil {
+		code, err := r.Cfg.TempMailLolProvider.WaitForCode(120, 3)
 		if err != nil {
 			return "", err
 		}

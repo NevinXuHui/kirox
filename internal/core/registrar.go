@@ -301,6 +301,18 @@ func (r *Registrar) Step3Email() error {
 		log.Printf("email=%s", r.Email)
 		return nil
 	}
+	if r.Cfg.UseYYDSMail && r.Cfg.YYDSMailProvider != nil {
+		log.Println("[3] 使用 YYDS Mail 邮箱")
+		r.Email = r.Cfg.YYDSMailProvider.GetAddress()
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
+	if r.Cfg.UseTempMailLol && r.Cfg.TempMailLolProvider != nil {
+		log.Println("[3] 使用 TempMail.lol 邮箱")
+		r.Email = r.Cfg.TempMailLolProvider.GetAddress()
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
 	log.Println("[3] 创建临时邮箱")
 	// 如果未配置 MoEmail URL，从已保存的 MoeMail 配置中自动读取
 	baseURL := r.Cfg.MoEmailBaseURL

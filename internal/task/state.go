@@ -12,14 +12,19 @@ type State struct {
 	running    bool
 	stopCh     chan struct{}
 	cancelFunc context.CancelFunc // 强制取消所有 HTTP 请求
+	// 单次会话统计
 	total      int
 	completed  int
 	success    int
 	failed     int
-	results    []map[string]interface{}
-	startTime  time.Time
-	logs       []string
-	logsMu     sync.Mutex
+	// 累计统计（持久化）
+	cumulativeCompleted int
+	cumulativeSuccess   int
+	cumulativeFailed    int
+	results             []map[string]interface{}
+	startTime           time.Time
+	logs                []string
+	logsMu              sync.Mutex
 }
 
 var Manager = &State{
@@ -62,5 +67,27 @@ func (s *State) GetStatus() map[string]interface{} {
 		"success":   s.success,
 		"failed":    s.failed,
 		"elapsed":   elapsed,
+		// 累计统计
+		"cumulativeCompleted": s.cumulativeCompleted,
+		"cumulativeSuccess":   s.cumulativeSuccess,
+		"cumulativeFailed":    s.cumulativeFailed,
 	}
+}
+
+// LoadCumulativeStats 加载累计统计数据
+func (s *State) LoadCumulativeStats(completed, success, failed int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cumulativeCompleted = completed
+	s.cumulativeSuccess = success
+	s.cumulativeFailed = failed
+}
+
+// UpdateCumulativeStats 更新累计统计（在任务完成时调用）
+func (s *State) UpdateCumulativeStats(completed, success, failed int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cumulativeCompleted += completed
+	s.cumulativeSuccess += success
+	s.cumulativeFailed += failed
 }

@@ -54,6 +54,10 @@ export function GetLuckMailConfigs() {
   return window['go']['main']['App']['GetLuckMailConfigs']();
 }
 
+export function GetLuckMailDomains(arg1) {
+  return window['go']['main']['App']['GetLuckMailDomains'](arg1);
+}
+
 export function GetMoeMailConfigs() {
   return window['go']['main']['App']['GetMoeMailConfigs']();
 }
@@ -68,6 +72,10 @@ export function GetOverview() {
 
 export function GetProxy() {
   return window['go']['main']['App']['GetProxy']();
+}
+
+export function GetProxyPool() {
+  return window['go']['main']['App']['GetProxyPool']();
 }
 
 export function GetResultOutputDir() {
@@ -88,6 +96,14 @@ export function GetSubscriptionPlans(arg1) {
 
 export function GetTaskStatus() {
   return window['go']['main']['App']['GetTaskStatus']();
+}
+
+export function GetTempMailLolConfigs() {
+  return window['go']['main']['App']['GetTempMailLolConfigs']();
+}
+
+export function GetYYDSMailConfigs() {
+  return window['go']['main']['App']['GetYYDSMailConfigs']();
 }
 
 export function ImportOutlookFile(arg1) {
@@ -114,6 +130,10 @@ export function ResetProxy() {
   return window['go']['main']['App']['ResetProxy']();
 }
 
+export function ResetProxyPool() {
+  return window['go']['main']['App']['ResetProxyPool']();
+}
+
 export function ResetResultOutputDir() {
   return window['go']['main']['App']['ResetResultOutputDir']();
 }
@@ -124,6 +144,14 @@ export function SaveLuckMailConfigs(arg1) {
 
 export function SaveMoeMailConfigs(arg1) {
   return window['go']['main']['App']['SaveMoeMailConfigs'](arg1);
+}
+
+export function SaveTempMailLolConfigs(arg1) {
+  return window['go']['main']['App']['SaveTempMailLolConfigs'](arg1);
+}
+
+export function SaveYYDSMailConfigs(arg1) {
+  return window['go']['main']['App']['SaveYYDSMailConfigs'](arg1);
 }
 
 export function SelectDirectory() {
@@ -140,6 +168,10 @@ export function SetDataDir(arg1) {
 
 export function SetProxy(arg1) {
   return window['go']['main']['App']['SetProxy'](arg1);
+}
+
+export function SetProxyPool(arg1) {
+  return window['go']['main']['App']['SetProxyPool'](arg1);
 }
 
 export function SetResultOutputDir(arg1) {
@@ -160,6 +192,18 @@ export function TestLuckMailConnection(arg1) {
 
 export function TestMoeMailConnection(arg1) {
   return window['go']['main']['App']['TestMoeMailConnection'](arg1);
+}
+
+export function TestProxyPool(arg1) {
+  return window['go']['main']['App']['TestProxyPool'](arg1);
+}
+
+export function TestTempMailLolConnection(arg1) {
+  return window['go']['main']['App']['TestTempMailLolConnection'](arg1);
+}
+
+export function TestYYDSMailConnection(arg1) {
+  return window['go']['main']['App']['TestYYDSMailConnection'](arg1);
 }
 
 export function VerifyLicense(arg1) {

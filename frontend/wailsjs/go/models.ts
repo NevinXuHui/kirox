@@ -6,6 +6,7 @@ export namespace email {
 	    projectCode: string;
 	    emailType: string;
 	    domain: string;
+	    baseURL: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LuckMailConfig(source);
@@ -18,6 +19,7 @@ export namespace email {
 	        this.projectCode = source["projectCode"];
 	        this.emailType = source["emailType"];
 	        this.domain = source["domain"];
+	        this.baseURL = source["baseURL"];
 	    }
 	}
 	export class MoeMailConfig {
@@ -34,6 +36,42 @@ export namespace email {
 	        this.name = source["name"];
 	        this.url = source["url"];
 	        this.apiKey = source["apiKey"];
+	    }
+	}
+	export class TempMailLolConfig {
+	    name: string;
+	    apiKey: string;
+	    prefix: string;
+	    domain: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TempMailLolConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.apiKey = source["apiKey"];
+	        this.prefix = source["prefix"];
+	        this.domain = source["domain"];
+	    }
+	}
+	export class YYDSMailConfig {
+	    name: string;
+	    accessToken: string;
+	    domain: string;
+	    username: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new YYDSMailConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.accessToken = source["accessToken"];
+	        this.domain = source["domain"];
+	        this.username = source["username"];
 	    }
 	}
 
@@ -82,6 +120,8 @@ export namespace task {
 	    moemailConfigs: Record<string, Array<email.MoeMailConfig>>;
 	    moemailRandomMode: boolean;
 	    luckmailConfig?: email.LuckMailConfig;
+	    yydsmailConfig?: email.YYDSMailConfig;
+	    tempmaillolConfig?: email.TempMailLolConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new StartTaskRequest(source);
@@ -98,6 +138,8 @@ export namespace task {
 	        this.moemailConfigs = this.convertValues(source["moemailConfigs"], Array<email.MoeMailConfig>, true);
 	        this.moemailRandomMode = source["moemailRandomMode"];
 	        this.luckmailConfig = this.convertValues(source["luckmailConfig"], email.LuckMailConfig);
+	        this.yydsmailConfig = this.convertValues(source["yydsmailConfig"], email.YYDSMailConfig);
+	        this.tempmaillolConfig = this.convertValues(source["tempmaillolConfig"], email.TempMailLolConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

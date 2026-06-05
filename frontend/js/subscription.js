@@ -40,9 +40,19 @@ async function reloadSubscriptionAccounts() {
   subState.accounts = list.map(function(a) {
     var hasCached = !!a.cachedUrl;
     return {
+      // 完整的原始账号数据
       email: a.email || '',
-      subscription: a.subscription || '',
+      password: a.password || '',
+      refreshToken: a.refreshToken || '',
+      clientId: a.clientId || '',
+      clientSecret: a.clientSecret || '',
+      region: a.region || '',
+      provider: a.provider || '',
       time: a.time || '',
+      subscription: a.subscription || '',
+      creditUsed: a.creditUsed,
+      creditLimit: a.creditLimit,
+      // UI 状态字段
       status: hasCached ? 'success' : 'idle',
       url: a.cachedUrl || '',
       planType: a.cachedPlanType || '',
@@ -336,6 +346,40 @@ function copyAllSubscriptionLinks() {
   if (!lines.length) { showToast('暂无可复制的链接（需勾选且已获取成功）', 'error'); return; }
   navigator.clipboard.writeText(lines.join('\n')).then(function() {
     showToast('已复制 ' + lines.length + ' 条链接');
+  });
+}
+
+function copySelectedAccountsJSON() {
+  var selected = subState.accounts.filter(function(a) { return a.selected; });
+  if (!selected.length) {
+    showToast('请先勾选要复制的账号', 'error');
+    return;
+  }
+
+  // 提取完整的账号数据，排除UI状态字段
+  var accountsData = selected.map(function(a) {
+    var data = {
+      email: a.email,
+      password: a.password,
+      refreshToken: a.refreshToken,
+      clientId: a.clientId,
+      clientSecret: a.clientSecret,
+      region: a.region,
+      provider: a.provider,
+      time: a.time,
+      subscription: a.subscription
+    };
+    // 只在有值时添加可选字段
+    if (a.creditUsed != null) data.creditUsed = a.creditUsed;
+    if (a.creditLimit != null) data.creditLimit = a.creditLimit;
+    return data;
+  });
+
+  var json = JSON.stringify(accountsData, null, 2);
+  navigator.clipboard.writeText(json).then(function() {
+    showToast('已复制 ' + selected.length + ' 个账号的JSON数据');
+  }).catch(function(err) {
+    showToast('复制失败: ' + err, 'error');
   });
 }
 

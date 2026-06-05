@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -156,6 +157,9 @@ func (r *Registrar) Run() map[string]interface{} {
 		return map[string]interface{}{"status": "failed", "error": friendlyErr, "email": r.Email}
 	}
 
+	// 诊断日志：记录返回的状态
+	log.Printf("%s [6] 邮箱提交返回状态: %s", prefix, status)
+
 	if status == "signup" {
 		signupSteps := []struct {
 			name string
@@ -209,8 +213,17 @@ func (r *Registrar) Run() map[string]interface{} {
 			log.Printf("%s 邮箱已被注册", prefix)
 			return map[string]interface{}{"status": "failed", "error": "邮箱已注册过，跳过", "email": r.Email}
 		}
-		log.Printf("%s 邮箱状态异常", prefix)
-		return map[string]interface{}{"status": "failed", "error": "临时邮箱不可能已存在", "email": r.Email}
+		// 临时邮箱返回非 signup 状态，记录详细信息用于诊断
+		emailDomain := ""
+		if idx := strings.Index(r.Email, "@"); idx >= 0 {
+			emailDomain = r.Email[idx+1:]
+		}
+		log.Printf("%s 邮箱状态异常: status=%s, domain=%s", prefix, status, emailDomain)
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("临时邮箱返回 %s 状态（域名: %s），可能该域名邮箱已被大量注册或被AWS限制", status, emailDomain),
+			"email":  r.Email,
+		}
 	}
 
 	// ========== 到达此处说明 SetPassword 已成功，邮箱已被消耗 ==========

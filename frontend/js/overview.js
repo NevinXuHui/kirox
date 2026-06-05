@@ -50,6 +50,13 @@ function updateOverviewUI(data) {
   setText('ov-kiro-success', taskSuccess);
   var successRate = taskTotal > 0 ? Math.round(taskSuccess / taskTotal * 100) : 0;
   setText('ov-kiro-success-rate', successRate + '%');
+
+  // 累计统计（持久化数据）
+  var cumulativeSuccess = kiro.cumulativeSuccess || 0;
+  var cumulativeFailed = kiro.cumulativeFailed || 0;
+  var cumulativeTotal = cumulativeSuccess + cumulativeFailed;
+  var cumulativeRate = cumulativeTotal > 0 ? Math.round(cumulativeSuccess / cumulativeTotal * 100) : 0;
+  setText('ov-kiro-cumulative-rate', '(累计: ' + cumulativeRate + '%)');
 }
 
 // 辅助函数

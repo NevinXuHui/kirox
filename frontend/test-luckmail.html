@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>LuckMail Test</title>
+</head>
+<body>
+    <h1>LuckMail 按钮测试</h1>
+
+    <div>
+        <input type="text" id="luckmail-inline-token" placeholder="接口秘钥">
+        <input type="text" id="luckmail-inline-project" placeholder="项目代码">
+        <button onclick="testClick()">测试点击</button>
+        <button onclick="inlineAddLuckMail()">添加配置</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script>
+        function testClick() {
+            alert('按钮点击有效！');
+            document.getElementById('output').innerHTML = '测试按钮工作正常';
+        }
+
+        function inlineAddLuckMail() {
+            alert('inlineAddLuckMail 被调用');
+            var token = document.getElementById('luckmail-inline-token').value;
+            var project = document.getElementById('luckmail-inline-project').value;
+            document.getElementById('output').innerHTML = 'Token: ' + token + '<br>Project: ' + project;
+        }
+    </script>
+</body>
+</html>

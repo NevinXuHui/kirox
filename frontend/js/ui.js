@@ -150,8 +150,8 @@ function escapeHtml(text) {
 
 // 初始化邮箱提供商选择（页面加载时调用）
 function initEmailProviderSelection() {
-  // 默认选中 Outlook
-  selectEmailProvider('outlook');
+  // 使用已恢复的 selectedEmailProvider 值（默认为 'outlook'）
+  selectEmailProvider(selectedEmailProvider || 'outlook');
 }
 
 // 选择邮箱提供商
@@ -162,9 +162,11 @@ function selectEmailProvider(provider) {
   const outlookBtn = document.querySelector('label[onclick*="outlook"]');
   const moemailBtn = document.querySelector('label[onclick*="moemail"]');
   const luckmailBtn = document.querySelector('label[onclick*="luckmail"]');
+  const yydsmailBtn = document.querySelector('label[onclick*="yydsmail"]');
+  const tempmaillolBtn = document.querySelector('label[onclick*="tempmaillol"]');
 
   // 重置所有按钮
-  [outlookBtn, moemailBtn, luckmailBtn].forEach(function(btn) {
+  [outlookBtn, moemailBtn, luckmailBtn, yydsmailBtn, tempmaillolBtn].forEach(function(btn) {
     if (btn) {
       btn.style.borderColor = 'var(--border)';
       btn.style.background = 'transparent';
@@ -172,7 +174,11 @@ function selectEmailProvider(provider) {
   });
 
   // 高亮选中的按钮
-  var activeBtn = provider === 'outlook' ? outlookBtn : provider === 'moemail' ? moemailBtn : luckmailBtn;
+  var activeBtn = provider === 'outlook' ? outlookBtn :
+                  provider === 'moemail' ? moemailBtn :
+                  provider === 'luckmail' ? luckmailBtn :
+                  provider === 'yydsmail' ? yydsmailBtn :
+                  provider === 'tempmaillol' ? tempmaillolBtn : outlookBtn;
   if (activeBtn) {
     activeBtn.style.borderColor = 'var(--primary)';
     activeBtn.style.background = 'rgba(59, 130, 246, 0.1)';
@@ -181,10 +187,14 @@ function selectEmailProvider(provider) {
   // 显示/隐藏配置区域
   const moemailConfigDiv = document.getElementById('moemail-config-select');
   const luckmailConfigDiv = document.getElementById('luckmail-config-select');
+  const yydsmailConfigDiv = document.getElementById('yydsmail-config-select');
+  const tempmaillolConfigDiv = document.getElementById('tempmaillol-config-select');
   const hintDiv = document.getElementById('email-provider-hint');
 
   moemailConfigDiv.style.display = 'none';
   if (luckmailConfigDiv) luckmailConfigDiv.style.display = 'none';
+  if (yydsmailConfigDiv) yydsmailConfigDiv.style.display = 'none';
+  if (tempmaillolConfigDiv) tempmaillolConfigDiv.style.display = 'none';
 
   if (provider === 'moemail') {
     moemailConfigDiv.style.display = 'block';
@@ -194,8 +204,21 @@ function selectEmailProvider(provider) {
     if (luckmailConfigDiv) luckmailConfigDiv.style.display = 'block';
     hintDiv.textContent = '使用 LuckMail 接码平台，按成功收费。需要先在邮箱池页面配置 API 信息。';
     loadLuckMailConfigToSelect();
+  } else if (provider === 'yydsmail') {
+    if (yydsmailConfigDiv) yydsmailConfigDiv.style.display = 'block';
+    hintDiv.textContent = '使用 YYDS Mail 临时邮箱服务，支持自定义域名。需要先在邮箱池页面配置 API 信息。';
+    loadYYDSMailConfigToSelect();
+  } else if (provider === 'tempmaillol') {
+    if (tempmaillolConfigDiv) tempmaillolConfigDiv.style.display = 'block';
+    hintDiv.textContent = '使用 TempMail.lol 免费临时邮箱服务，支持 API Key 和自定义域名。需要先在邮箱池页面配置。';
+    loadTempMailLolConfigToSelect();
   } else {
     hintDiv.textContent = '使用微软邮箱进行注册，代理配置请在设置页设置。';
+  }
+
+  // 保存配置
+  if (typeof saveConfig === 'function') {
+    saveConfig();
   }
 }
 
@@ -306,6 +329,11 @@ function toggleMoeMailDomain(domain, el) {
   }
 
   updateDomainOptionStyles();
+
+  // 保存配置
+  if (typeof saveConfig === 'function') {
+    saveConfig();
+  }
 }
 
 // 全选域名
@@ -316,6 +344,11 @@ function selectAllMoeMailDomains() {
 
 // 当前选中的 LuckMail 配置索引
 var selectedLuckMailConfigIdx = 0;
+var luckmailConfigs = [];
+
+// 当前选中的 YYDS Mail 配置索引
+var selectedYYDSMailConfigIdx = 0;
+var yydsmailConfigs = [];
 
 // 加载 LuckMail 配置到注册页选择器
 async function loadLuckMailConfigToSelect() {
@@ -349,6 +382,50 @@ function selectLuckMailConfig(idx) {
   document.querySelectorAll('#luckmail-config-list .domain-chip').forEach(function(el) {
     el.classList.toggle('selected', parseInt(el.getAttribute('data-idx')) === idx);
   });
+
+  // 保存配置
+  if (typeof saveConfig === 'function') {
+    saveConfig();
+  }
+}
+
+// 加载 YYDS Mail 配置到注册页选择器
+async function loadYYDSMailConfigToSelect() {
+  var selectDiv = document.getElementById('yydsmail-config-list');
+  if (!selectDiv) return;
+
+  try {
+    yydsmailConfigs = await window.go.main.App.GetYYDSMailConfigs();
+    if (!yydsmailConfigs || yydsmailConfigs.length === 0) {
+      selectDiv.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">暂无配置，请先在邮箱池页面添加</div>';
+      return;
+    }
+
+    var html = '';
+    yydsmailConfigs.forEach(function(cfg, idx) {
+      var selected = idx === selectedYYDSMailConfigIdx ? ' selected' : '';
+      html += '<div class="domain-chip' + selected + '" data-idx="' + idx + '" onclick="selectYYDSMailConfig(' + idx + ')">' +
+        escapeHtml(cfg.name) +
+      '</div>';
+    });
+
+    selectDiv.innerHTML = '<div class="domain-chips-wrap">' + html + '</div>';
+  } catch (e) {
+    selectDiv.innerHTML = '<div style="text-align:center;color:var(--danger);font-size:12px;padding:12px;">加载失败</div>';
+  }
+}
+
+// 选择 YYDS Mail 配置
+function selectYYDSMailConfig(idx) {
+  selectedYYDSMailConfigIdx = idx;
+  document.querySelectorAll('#yydsmail-config-list .domain-chip').forEach(function(el) {
+    el.classList.toggle('selected', parseInt(el.getAttribute('data-idx')) === idx);
+  });
+
+  // 保存配置
+  if (typeof saveConfig === 'function') {
+    saveConfig();
+  }
 }
 
 // 关闭任务模态框

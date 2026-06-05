@@ -232,7 +232,10 @@
             </svg>
             <div>
               <div class="db-stat-label">注册成功率</div>
-              <div class="db-stat-value" id="ov-kiro-success-rate">0%</div>
+              <div class="db-stat-value">
+                <span id="ov-kiro-success-rate">0%</span>
+                <span style="font-size:11px;color:var(--muted);margin-left:4px;" id="ov-kiro-cumulative-rate">(累计: 0%)</span>
+              </div>
             </div>
           </div>
         </div>
@@ -420,17 +423,18 @@
 
             <div class="settings-item">
               <div class="settings-item-main">
-                <div class="settings-item-title">代理</div>
-                <div class="settings-item-desc">所有注册请求走该代理；留空=直连。支持 http/https/socks5 完整 URL，也支持 host:port:user:pass、host:port、user:pass@host:port 等简写。</div>
+                <div class="settings-item-title">代理池</div>
+                <div class="settings-item-desc">每个注册任务从代理池获取独立代理，用完后才复用。每行一个代理，支持注释行（#开头）。支持 http/https/socks5 完整 URL，也支持 host:port:user:pass、host:port、user:pass@host:port 等简写。</div>
               </div>
               <div class="settings-item-action">
                 <div style="display:flex;flex-direction:column;gap:8px;width:100%;">
+                  <textarea id="cfg-proxy-pool" placeholder="每行一个代理，例如：&#10;http://user:pass@127.0.0.1:7890&#10;socks5://127.0.0.1:1080&#10;# 这是注释行" class="form-input" style="flex:1;min-height:120px;font-family:monospace;font-size:12px;"></textarea>
                   <div style="display:flex;gap:8px;">
-                    <input type="text" id="cfg-proxy" placeholder="例如 http://user:pass@127.0.0.1:7890" class="form-input" style="flex:1;">
-                    <button onclick="saveProxy()" class="btn btn-secondary btn-sm">保存</button>
-                    <button onclick="resetProxy()" class="btn btn-secondary btn-sm">清除</button>
+                    <button onclick="saveProxyPool()" class="btn btn-secondary btn-sm">保存</button>
+                    <button onclick="resetProxyPool()" class="btn btn-secondary btn-sm">清除</button>
+                    <button onclick="testProxyPool()" class="btn btn-secondary btn-sm">测试</button>
                   </div>
-                  <div id="proxy-detect-card" style="display:none;"></div>
+                  <div id="proxy-pool-status" style="display:none;padding:8px;border-radius:4px;font-size:12px;"></div>
                 </div>
               </div>
             </div>
@@ -501,6 +505,7 @@
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--border);">
               <button onclick="openSubscriptionPlanModal()" id="sub-batch-btn" class="btn btn-dark btn-sm">一键获取选中</button>
               <button onclick="copyAllSubscriptionLinks()" class="btn btn-secondary btn-sm">复制选中链接</button>
+              <button onclick="copySelectedAccountsJSON()" class="btn btn-secondary btn-sm">复制账号JSON</button>
               <button onclick="reloadSubscriptionAccounts()" class="btn btn-secondary btn-sm">重新加载账号</button>
               <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto;">
                 <span>并发</span>
@@ -630,6 +635,24 @@
                   <span>LuckMail</span>
                 </div>
               </label>
+              <label style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all 0.2s;" onclick="selectEmailProvider('yydsmail')">
+                <input type="radio" name="email-provider" value="yydsmail" style="display:none;">
+                <div id="provider-yydsmail" style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                  <span>YYDS Mail</span>
+                </div>
+              </label>
+              <label style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all 0.2s;" onclick="selectEmailProvider('tempmaillol')">
+                <input type="radio" name="email-provider" value="tempmaillol" style="display:none;">
+                <div id="provider-tempmaillol" style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#06b6d4;">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                  </svg>
+                  <span>TempMail.lol</span>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -661,6 +684,34 @@
                 <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">加载中...</div>
               </div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">LuckMail 按成功接码收费，未收到验证码不扣费</div>
+            </div>
+          </div>
+
+          <!-- YYDS Mail 配置选择 -->
+          <div id="yydsmail-config-select" style="display:none;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span>选择配置</span>
+              </label>
+              <div id="yydsmail-config-list" class="moemail-domains-container">
+                <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">加载中...</div>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">YYDS Mail 提供临时邮箱服务，支持自定义域名</div>
+            </div>
+          </div>
+
+          <!-- TempMail.lol 配置选择 -->
+          <div id="tempmaillol-config-select" style="display:none;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#06b6d4;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <span>选择配置</span>
+              </label>
+              <div id="tempmaillol-config-list" class="moemail-domains-container">
+                <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:12px;">加载中...</div>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">TempMail.lol 提供免费临时邮箱，支持 API Key 和自定义域名</div>
             </div>
           </div>
 
@@ -724,7 +775,7 @@
                   </div>
                   <div class="moemail-input-group" style="flex:1;">
                     <label>邮箱类型 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
-                    <select id="luckmail-inline-emailtype" class="form-input">
+                    <select id="luckmail-inline-emailtype" class="form-input" onchange="onLuckMailEmailTypeChange()">
                       <option value="">自动分配</option>
                       <option value="ms_imap" selected>ms_imap (微软IMAP)</option>
                       <option value="ms_graph">ms_graph (微软Graph)</option>
@@ -733,13 +784,9 @@
                     </select>
                   </div>
                   <div class="moemail-input-group" style="flex:1;">
-                    <label>域名 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <label>域名 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选，测试连接后自动更新)</span></label>
                     <select id="luckmail-inline-domain" class="form-input">
                       <option value="">自动分配</option>
-                      <option value="hotmail.com" selected>hotmail.com</option>
-                      <option value="outlook.com">outlook.com</option>
-                      <option value="gmail.com">gmail.com</option>
-                      <option value="googlemail.com">googlemail.com</option>
                     </select>
                   </div>
                 </div>
@@ -757,6 +804,112 @@
               </div>
             </div>
             <div id="luckmail-inline-list" class="moemail-config-list"></div>
+          </div>
+        </div>
+
+        <!-- YYDS Mail 配置 -->
+        <div class="card" style="flex-shrink:0;margin-bottom:20px;">
+          <div class="settings-group">
+            <div class="settings-group-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                </svg>
+                <span>YYDS Mail 临时邮箱</span>
+              </div>
+              <span id="yydsmail-summary" style="font-size:12px;font-weight:600;color:var(--text-muted);padding:4px 10px;background:var(--bg-subtle);border-radius:6px;">未配置</span>
+            </div>
+            <div class="moemail-add-section">
+              <div class="moemail-add-header">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span>添加新配置</span>
+              </div>
+              <div class="moemail-add-body">
+                <div class="moemail-input-row">
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>名称 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="yydsmail-inline-name" placeholder="自动生成" class="form-input">
+                  </div>
+                  <div class="moemail-input-group" style="flex:3;">
+                    <label>访问令牌 (Access Token)</label>
+                    <input type="text" id="yydsmail-inline-token" placeholder="your_access_token" class="form-input">
+                  </div>
+                </div>
+                <div class="moemail-input-row" style="margin-top:8px;">
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>域名 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="yydsmail-inline-domain" placeholder="example.com" class="form-input">
+                  </div>
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>用户名 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="yydsmail-inline-username" placeholder="自动生成" class="form-input">
+                  </div>
+                </div>
+                <div class="moemail-action-row">
+                  <button onclick="inlineTestYYDSMail();" class="btn btn-secondary btn-sm" id="yydsmail-inline-test-btn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    测试连接
+                  </button>
+                  <button onclick="inlineAddYYDSMail();" class="btn btn-dark btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    添加配置
+                  </button>
+                  <span id="yydsmail-inline-status" class="moemail-status-text"></span>
+                </div>
+              </div>
+            </div>
+            <div id="yydsmail-inline-list" class="moemail-config-list"></div>
+          </div>
+        </div>
+
+        <!-- TempMail.lol 配置 -->
+        <div class="card" style="flex-shrink:0;margin-bottom:20px;">
+          <div class="settings-group">
+            <div class="settings-group-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#06b6d4;">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+                <span>TempMail.lol</span>
+              </div>
+              <span id="tempmaillol-summary" class="badge">未配置</span>
+            </div>
+            <div class="settings-group-body">
+              <div class="moemail-inline-form">
+                <div class="moemail-input-row">
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>名称 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="tempmaillol-inline-name" placeholder="自动生成" class="form-input">
+                  </div>
+                  <div class="moemail-input-group" style="flex:2;">
+                    <label>API Key <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选，免费层不需要)</span></label>
+                    <input type="text" id="tempmaillol-inline-apikey" placeholder="tm.xxxxx" class="form-input">
+                  </div>
+                </div>
+                <div class="moemail-input-row" style="margin-top:8px;">
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>前缀 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="tempmaillol-inline-prefix" placeholder="自动生成" class="form-input">
+                  </div>
+                  <div class="moemail-input-group" style="flex:1;">
+                    <label>自定义域名 <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(可选)</span></label>
+                    <input type="text" id="tempmaillol-inline-domain" placeholder="example.com" class="form-input">
+                  </div>
+                </div>
+                <div class="moemail-action-row">
+                  <button onclick="inlineTestTempMailLol();" class="btn btn-secondary btn-sm" id="tempmaillol-inline-test-btn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    测试连接
+                  </button>
+                  <button onclick="inlineAddTempMailLol();" class="btn btn-dark btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    添加配置
+                  </button>
+                  <span id="tempmaillol-inline-status" class="moemail-status-text"></span>
+                </div>
+              </div>
+            </div>
+            <div id="tempmaillol-inline-list" class="moemail-config-list"></div>
           </div>
         </div>
 
@@ -961,6 +1114,9 @@
 <script src="js/accounts.js"></script>
 <script src="js/moemail.js"></script>
 <script src="js/luckmail.js"></script>
+<script src="js/yydsmail.js"></script>
+<script src="js/tempmaillol.js"></script>
+<script src="js/tempmaillol_ui.js"></script>
 <script src="js/task.js"></script>
 <script src="js/overview.js"></script>
 <script src="js/subscription.js"></script>

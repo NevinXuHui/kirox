@@ -14,6 +14,7 @@ import (
 	"reg_go/internal/data"
 	"reg_go/internal/email"
 	"reg_go/internal/kiro"
+	"reg_go/internal/proxy"
 	"reg_go/internal/storage"
 )
 
@@ -23,11 +24,21 @@ type StartTaskRequest struct {
 	Concurrency       int                              `json:"concurrency"`
 	Delay             int                              `json:"delay"`
 	OutputPath        string                           `json:"outputPath"`
-	EmailProvider     string                           `json:"emailProvider"`     // "outlook" / "moemail" / "luckmail"
+	EmailProvider     string                           `json:"emailProvider"`     // "outlook" / "moemail" / "luckmail" / "yydsmail" / "tempmaillol"
 	MoeMailDomains    []string                         `json:"moemailDomains"`    // 选中的域名列表
 	MoeMailConfigs    map[string][]email.MoeMailConfig `json:"moemailConfigs"`    // 域名 -> 配置列表映射
 	MoeMailRandomMode bool                             `json:"moemailRandomMode"` // 是否为随机模式
 	LuckMailConfig    *email.LuckMailConfig            `json:"luckmailConfig"`    // LuckMail 配置
+	YYDSMailConfig    *email.YYDSMailConfig            `json:"yydsmailConfig"`    // YYDS Mail 配置
+	TempMailLolConfig *email.TempMailLolConfig         `json:"tempmaillolConfig"` // TempMail.lol 配置
+}
+
+// waitBeforeNextConcurrentLaunch 在并发模式下控制任务启动间隔
+func waitBeforeNextConcurrentLaunch(index, total, delaySeconds int, wait func(time.Duration)) {
+	if delaySeconds <= 0 || index >= total-1 {
+		return
+	}
+	wait(time.Duration(delaySeconds) * time.Second)
 }
 
 // StartTask 公开方法（包装器）
@@ -75,6 +86,22 @@ func startTask(req StartTaskRequest) map[string]interface{} {
 		if req.LuckMailConfig.ProjectCode == "" {
 			Manager.mu.Unlock()
 			return map[string]interface{}{"error": "LuckMail 项目代码未配置"}
+		}
+	} else if emailProvider == "yydsmail" {
+		// YYDS Mail 模式：验证配置
+		if req.YYDSMailConfig == nil {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "YYDS Mail 配置缺失"}
+		}
+		if req.YYDSMailConfig.AccessToken == "" {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "YYDS Mail 访问令牌未配置"}
+		}
+	} else if emailProvider == "tempmaillol" {
+		// TempMail.lol 模式：验证配置（API Key 可选）
+		if req.TempMailLolConfig == nil {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "TempMail.lol 配置缺失"}
 		}
 	} else {
 		// Outlook 模式：加载账号列表
@@ -187,10 +214,17 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 
 	taskConfig := core.NewConfig()
 	taskConfig.EmailProvider = emailProvider
-	taskConfig.Proxy = storage.GetProxy()
-	if taskConfig.Proxy != "" {
-		log.Printf("[Kiro] 已启用代理")
+
+	// 初始化代理池
+	var proxyPool *proxy.Pool
+	proxyList := storage.GetProxyPool()
+	if len(proxyList) > 0 {
+		proxyPool = proxy.NewPool(proxyList)
+		log.Printf("[Kiro] 已启用代理池，共 %d 个代理", len(proxyList))
+	} else {
+		log.Printf("[Kiro] 未配置代理池，使用直连")
 	}
+
 
 	// 预先准备 MoeMail 域名池
 	var moemailDomainPool []string
@@ -213,6 +247,14 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		taskConfig.UseLuckMail = true
 		taskConfig.LuckMailConfig = req.LuckMailConfig
 		log.Printf("[Kiro] LuckMail 模式: 项目=%s, 邮箱类型=%s", req.LuckMailConfig.ProjectCode, req.LuckMailConfig.EmailType)
+	} else if emailProvider == "yydsmail" {
+		taskConfig.UseYYDSMail = true
+		taskConfig.YYDSMailConfig = req.YYDSMailConfig
+		log.Printf("[Kiro] YYDS Mail 模式: 配置=%s", req.YYDSMailConfig.Name)
+	} else if emailProvider == "tempmaillol" {
+		taskConfig.UseTempMailLol = true
+		taskConfig.TempMailLolConfig = req.TempMailLolConfig
+		log.Printf("[Kiro] TempMail.lol 模式: 配置=%s", req.TempMailLolConfig.Name)
 	} else if emailProvider == "outlook" {
 		taskConfig.UseOutlook = true
 	}
@@ -269,6 +311,11 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		taskCfg.Password = core.GenPassword()
 		var currentEmail string
 
+		// 从代理池获取代理（如果启用了代理池）
+		if proxyPool != nil {
+			taskCfg.Proxy = proxyPool.Acquire()
+		}
+
 		// 根据邮箱提供商类型获取邮箱
 		if emailProvider == "outlook" {
 			// Outlook 模式：从共享池领取账号
@@ -298,6 +345,38 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 			}
 
 			taskCfg.LuckMailProvider = provider
+			currentEmail = provider.GetAddress()
+		} else if emailProvider == "yydsmail" {
+			// YYDS Mail 模式：创建临时邮箱
+			log.Printf("[Kiro][%d/%d] 创建 YYDS Mail 临时邮箱", i+1, req.Count)
+
+			provider, err := email.NewYYDSMailProvider(*taskCfg.YYDSMailConfig)
+			if err != nil {
+				log.Printf("[Kiro][%d/%d] YYDS Mail 创建邮箱失败: %v", i+1, req.Count, err)
+				Manager.mu.Lock()
+				Manager.completed++
+				Manager.failed++
+				Manager.mu.Unlock()
+				return
+			}
+
+			taskCfg.YYDSMailProvider = provider
+			currentEmail = provider.GetAddress()
+		} else if emailProvider == "tempmaillol" {
+			// TempMail.lol 模式：创建临时邮箱
+			log.Printf("[Kiro][%d/%d] 创建 TempMail.lol 临时邮箱", i+1, req.Count)
+
+			provider, err := email.NewTempMailLolProvider(*taskCfg.TempMailLolConfig)
+			if err != nil {
+				log.Printf("[Kiro][%d/%d] TempMail.lol 创建邮箱失败: %v", i+1, req.Count, err)
+				Manager.mu.Lock()
+				Manager.completed++
+				Manager.failed++
+				Manager.mu.Unlock()
+				return
+			}
+
+			taskCfg.TempMailLolProvider = provider
 			currentEmail = provider.GetAddress()
 		} else if emailProvider == "moemail" {
 			// MoeMail 模式：动态生成临时邮箱
@@ -512,6 +591,7 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 				defer func() { <-sem }()
 				doTask(idx)
 			}(i)
+			waitBeforeNextConcurrentLaunch(i, req.Count, req.Delay, time.Sleep)
 		}
 		wg.Wait()
 	} else {
@@ -548,12 +628,26 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		avgDur = sum / float64(len(taskDurations))
 	}
 
+	// 更新累计统计并持久化
+	if err := storage.UpdateStats(totalCount, sucCount, failCount); err != nil {
+		log.Printf("[Kiro] 保存累计统计失败: %v", err)
+	}
+	Manager.UpdateCumulativeStats(totalCount, sucCount, failCount)
+
 	// 统计报告
 	log.Println("[Kiro] ═══════════════════════════════")
 	log.Printf("[Kiro] 任务完成 — 总计: %d, 成功: %d, 失败: %d", totalCount, sucCount, failCount)
 	log.Printf("[Kiro] 总耗时: %.1fs, 平均耗时: %.1fs/个", totalDuration, avgDur)
 	if totalCount > 0 {
 		log.Printf("[Kiro] 成功率: %.1f%%", float64(sucCount)/float64(totalCount)*100)
+	}
+
+	// 显示累计统计
+	cumulativeStats := storage.GetStats()
+	if cumulativeStats.TotalCompleted > 0 {
+		cumulativeRate := float64(cumulativeStats.TotalSuccess) / float64(cumulativeStats.TotalCompleted) * 100
+		log.Printf("[Kiro] 累计统计 — 总计: %d, 成功: %d, 失败: %d, 成功率: %.1f%%",
+			cumulativeStats.TotalCompleted, cumulativeStats.TotalSuccess, cumulativeStats.TotalFailed, cumulativeRate)
 	}
 	if failCount > 0 {
 		log.Printf("[Kiro] 失败明细:")
@@ -597,7 +691,7 @@ func isKillSwitchError(errorMsg string) bool {
 		return false
 	}
 	triggers := []string{
-		"send-otp 失败 (400)",     // Step9 原始 400
+		// "send-otp 失败 (400)" 已移除 - 可能是临时邮箱问题，不应触发熔断
 		"注册被拦截",                // formatError 对 BLOCKED/注册请求被拦截 的翻译
 		"IP或浏览器指纹被检测",    // 指纹/IP 被标记
 		"BLOCKED",                  // 响应体里直接包含的风控标记

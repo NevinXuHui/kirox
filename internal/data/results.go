@@ -33,6 +33,7 @@ func SaveKiroSuccess(result map[string]interface{}, outDir string) error {
 		"clientSecret": result["client_secret"],
 		"region":       "us-east-1",
 		"email":        emailAddr,
+		"password":     result["password"],
 		"time":         time.Now().Format("2006-01-02 15:04:05"),
 	}
 	if verify != nil {

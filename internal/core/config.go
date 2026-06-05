@@ -40,6 +40,14 @@ type Config struct {
 	UseLuckMail      bool
 	LuckMailConfig   *email.LuckMailConfig
 	LuckMailProvider *email.LuckMailProvider
+
+	UseYYDSMail      bool
+	YYDSMailConfig   *email.YYDSMailConfig
+	YYDSMailProvider *email.YYDSMailProvider
+
+	UseTempMailLol      bool
+	TempMailLolConfig   *email.TempMailLolConfig
+	TempMailLolProvider *email.TempMailLolProvider
 }
 
 // NewConfig 创建默认配置

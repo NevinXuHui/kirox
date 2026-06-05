@@ -15,6 +15,7 @@ const (
 	keyDataDir         = "data_dir"
 	keyResultOutputDir = "result_output_dir"
 	keyProxy           = "proxy"
+	keyProxyPool       = "proxy_pool"
 )
 
 var (
@@ -24,6 +25,8 @@ var (
 	_resultOutputOnce sync.Once
 	_proxy            string
 	_proxyOnce        sync.Once
+	_proxyPool        []string
+	_proxyPoolOnce    sync.Once
 )
 
 // GetDefaultDataDir 获取默认应用数据目录
@@ -264,6 +267,70 @@ func ResetProxy() {
 	_proxyOnce = sync.Once{}
 	_proxyOnce.Do(func() {})
 }
+
+// GetProxyPool 返回代理池列表（每行一个代理）
+func GetProxyPool() []string {
+	_proxyPoolOnce.Do(func() {
+		m := loadConfigMap()
+		poolStr := strings.TrimSpace(m[keyProxyPool])
+		if poolStr == "" {
+			_proxyPool = []string{}
+			return
+		}
+		lines := strings.Split(poolStr, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				normalized := NormalizeProxyAddress(line)
+				if normalized != "" {
+					_proxyPool = append(_proxyPool, normalized)
+				}
+			}
+		}
+	})
+	return _proxyPool
+}
+
+// SetProxyPool 设置代理池（每行一个代理，支持注释行）
+func SetProxyPool(proxies []string) error {
+	normalized := make([]string, 0, len(proxies))
+	for _, p := range proxies {
+		p = strings.TrimSpace(p)
+		if p != "" && !strings.HasPrefix(p, "#") {
+			norm := NormalizeProxyAddress(p)
+			if norm != "" {
+				normalized = append(normalized, norm)
+			}
+		}
+	}
+
+	m := loadConfigMap()
+	if len(normalized) == 0 {
+		delete(m, keyProxyPool)
+	} else {
+		m[keyProxyPool] = strings.Join(normalized, "\n")
+	}
+
+	if err := saveConfigMap(m); err != nil {
+		return err
+	}
+
+	_proxyPool = normalized
+	_proxyPoolOnce = sync.Once{}
+	_proxyPoolOnce.Do(func() {})
+	return nil
+}
+
+// ResetProxyPool 清空代理池配置
+func ResetProxyPool() {
+	m := loadConfigMap()
+	delete(m, keyProxyPool)
+	_ = saveConfigMap(m)
+	_proxyPool = []string{}
+	_proxyPoolOnce = sync.Once{}
+	_proxyPoolOnce.Do(func() {})
+}
+
 
 // NormalizeProxyAddress 归一化常见代理写法为完整 URL:
 //   - scheme://host:port:user:pass -> scheme://user:pass@host:port (bestgo 等格式)
