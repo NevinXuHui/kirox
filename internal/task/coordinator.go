@@ -31,6 +31,9 @@ type StartTaskRequest struct {
 	LuckMailConfig    *email.LuckMailConfig            `json:"luckmailConfig"`    // LuckMail 配置
 	YYDSMailConfig    *email.YYDSMailConfig            `json:"yydsmailConfig"`    // YYDS Mail 配置
 	TempMailLolConfig *email.TempMailLolConfig         `json:"tempmaillolConfig"` // TempMail.lol 配置
+	CloudMailDomains    []string                           `json:"cloudmailDomains"`
+	CloudMailConfigs    map[string][]email.CloudMailConfig `json:"cloudmailConfigs"`
+	CloudMailRandomMode bool                               `json:"cloudmailRandomMode"`
 }
 
 // waitBeforeNextConcurrentLaunch 在并发模式下控制任务启动间隔
@@ -102,6 +105,15 @@ func startTask(req StartTaskRequest) map[string]interface{} {
 		if req.TempMailLolConfig == nil {
 			Manager.mu.Unlock()
 			return map[string]interface{}{"error": "TempMail.lol 配置缺失"}
+		}
+	} else if emailProvider == "cloudmail" {
+		if len(req.CloudMailDomains) == 0 {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "请选择至少一个 cloud-mail 域名"}
+		}
+		if len(req.CloudMailConfigs) == 0 {
+			Manager.mu.Unlock()
+			return map[string]interface{}{"error": "cloud-mail 配置缺失"}
 		}
 	} else {
 		// Outlook 模式：加载账号列表
@@ -215,16 +227,6 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 	taskConfig := core.NewConfig()
 	taskConfig.EmailProvider = emailProvider
 
-	// 初始化代理池
-	var proxyPool *proxy.Pool
-	proxyList := storage.GetProxyPool()
-	if len(proxyList) > 0 {
-		proxyPool = proxy.NewPool(proxyList)
-		log.Printf("[Kiro] 已启用代理池，共 %d 个代理", len(proxyList))
-	} else {
-		log.Printf("[Kiro] 未配置代理池，使用直连")
-	}
-
 
 	// 预先准备 MoeMail 域名池
 	var moemailDomainPool []string
@@ -257,6 +259,25 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		log.Printf("[Kiro] TempMail.lol 模式: 配置=%s", req.TempMailLolConfig.Name)
 	} else if emailProvider == "outlook" {
 		taskConfig.UseOutlook = true
+	}
+
+	// 预先准备 CloudMail 域名池
+	var cloudmailDomainPool []string
+	var cloudmailDomainConfigs map[string][]email.CloudMailConfig
+	if emailProvider == "cloudmail" {
+		taskConfig.UseCloudMail = true
+		cloudmailDomainPool = req.CloudMailDomains
+		cloudmailDomainConfigs = req.CloudMailConfigs
+
+		if len(cloudmailDomainPool) == 0 || len(cloudmailDomainConfigs) == 0 {
+			log.Println("[Kiro] cloud-mail 域名或配置为空，任务终止")
+			Manager.mu.Lock()
+			Manager.running = false
+			Manager.mu.Unlock()
+			return
+		}
+
+		log.Printf("[Kiro] cloud-mail 域名池: %v (共 %d 个域名)", cloudmailDomainPool, len(cloudmailDomainPool))
 	}
 
 	// 统计计数器
@@ -298,6 +319,25 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		return domain, configs[rand.Intn(len(configs))]
 	}
 
+	// CloudMail 域名池索引（并发安全）
+	var cloudmailDomainIdx int
+	var cloudmailDomainMu sync.Mutex
+	nextCloudMailDomain := func() (string, email.CloudMailConfig) {
+		cloudmailDomainMu.Lock()
+		defer cloudmailDomainMu.Unlock()
+
+		var domain string
+		if req.CloudMailRandomMode {
+			domain = cloudmailDomainPool[rand.Intn(len(cloudmailDomainPool))]
+		} else {
+			domain = cloudmailDomainPool[cloudmailDomainIdx%len(cloudmailDomainPool)]
+			cloudmailDomainIdx++
+		}
+
+		configs := cloudmailDomainConfigs[domain]
+		return domain, configs[rand.Intn(len(configs))]
+	}
+
 	// send-otp 400 熔断：任一任务遇到该错误即终止全部并发任务（只触发一次）
 	var otpKillOnce sync.Once
 	doTask := func(i int) {
@@ -309,12 +349,12 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 
 		taskCfg := *taskConfig
 		taskCfg.Password = core.GenPassword()
-		var currentEmail string
-
-		// 从代理池获取代理（如果启用了代理池）
-		if proxyPool != nil {
-			taskCfg.Proxy = proxyPool.Acquire()
+		// 多代理池：若存在启用项，按权重抽签覆盖单代理
+		if picked := proxy.PickRandom(); picked != "" {
+			taskCfg.Proxy = picked
+			log.Printf("[Kiro][%d/%d] 选中代理 %s", i+1, req.Count, picked)
 		}
+		var currentEmail string
 
 		// 根据邮箱提供商类型获取邮箱
 		if emailProvider == "outlook" {
@@ -377,6 +417,26 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 			}
 
 			taskCfg.TempMailLolProvider = provider
+			currentEmail = provider.GetAddress()
+		} else if emailProvider == "cloudmail" {
+			domain, config := nextCloudMailDomain()
+			emailName := email.GenerateEmailName(i)
+
+			log.Printf("[Kiro][%d/%d] 创建 cloud-mail 邮箱: %s@%s (配置: %s)", i+1, req.Count, emailName, domain, config.Name)
+
+			provider, err := email.NewCloudMailProvider(config, emailName, domain)
+			if err != nil {
+				log.Printf("[Kiro][%d/%d] 生成 cloud-mail 邮箱失败: %v", i+1, req.Count, err)
+				Manager.mu.Lock()
+				Manager.completed++
+				Manager.failed++
+				Manager.mu.Unlock()
+				return
+			}
+
+			taskCfg.CloudMailProvider = provider
+			cfgCopy := config
+			taskCfg.CloudMailConfig = &cfgCopy
 			currentEmail = provider.GetAddress()
 		} else if emailProvider == "moemail" {
 			// MoeMail 模式：动态生成临时邮箱

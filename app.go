@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"log"
 	"os"
@@ -37,6 +36,9 @@ func (a *App) startup(ctx context.Context) {
 	stats := storage.LoadStats()
 	task.Manager.LoadCumulativeStats(stats.TotalCompleted, stats.TotalSuccess, stats.TotalFailed)
 	log.Printf("[Kiro] 已加载累计统计: 完成=%d, 成功=%d, 失败=%d", stats.TotalCompleted, stats.TotalSuccess, stats.TotalFailed)
+
+	// 初始化代理池（按数据目录持久化）
+	proxy.InitPool(storage.GetDataDir())
 
 	// 居中显示窗口
 	go func() {
@@ -227,54 +229,18 @@ func (a *App) TestTempMailLolConnection(configJSON string) map[string]interface{
 	return email.TestTempMailLolConnection(configJSON)
 }
 
-// ---- 代理池 ----
+// ---- CloudMail ----
 
-func (a *App) GetProxyPool() []string {
-	return storage.GetProxyPool()
+func (a *App) GetCloudMailConfigs() []email.CloudMailConfig {
+	return email.GetCloudMailConfigs()
 }
 
-func (a *App) SetProxyPool(proxiesJSON string) map[string]interface{} {
-	var proxies []string
-	if err := json.Unmarshal([]byte(proxiesJSON), &proxies); err != nil {
-		return map[string]interface{}{"error": "配置格式错误: " + err.Error()}
-	}
-
-	if err := storage.SetProxyPool(proxies); err != nil {
-		return map[string]interface{}{"error": "保存失败: " + err.Error()}
-	}
-
-	return map[string]interface{}{"success": true}
+func (a *App) SaveCloudMailConfigs(configsJSON string) map[string]interface{} {
+	return email.SaveCloudMailConfigs(configsJSON)
 }
 
-func (a *App) ResetProxyPool() map[string]interface{} {
-	storage.ResetProxyPool()
-	return map[string]interface{}{"success": true}
-}
-
-func (a *App) TestProxyPool(proxiesJSON string) map[string]interface{} {
-	var proxies []string
-	if err := json.Unmarshal([]byte(proxiesJSON), &proxies); err != nil {
-		return map[string]interface{}{"error": "配置格式错误: " + err.Error()}
-	}
-
-	testCount := len(proxies)
-	if testCount > 10 {
-		testCount = 10
-	}
-
-	results := make([]proxy.Info, 0, testCount)
-	for i := 0; i < testCount; i++ {
-		proxyURL := proxies[i]
-		result := proxy.Detect(proxyURL)
-		results = append(results, result)
-	}
-
-	return map[string]interface{}{
-		"success": true,
-		"results": results,
-		"total":   len(proxies),
-		"tested":  testCount,
-	}
+func (a *App) TestCloudMailConnection(configJSON string) map[string]interface{} {
+	return email.TestCloudMailConnection(configJSON)
 }
 
 // ---- Outlook ----

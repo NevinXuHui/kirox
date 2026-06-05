@@ -15,7 +15,7 @@ const (
 	keyDataDir         = "data_dir"
 	keyResultOutputDir = "result_output_dir"
 	keyProxy           = "proxy"
-	keyProxyPool       = "proxy_pool"
+	keyLanguage        = "language"
 )
 
 var (
@@ -25,8 +25,8 @@ var (
 	_resultOutputOnce sync.Once
 	_proxy            string
 	_proxyOnce        sync.Once
-	_proxyPool        []string
-	_proxyPoolOnce    sync.Once
+	_language         string
+	_languageOnce     sync.Once
 )
 
 // GetDefaultDataDir 获取默认应用数据目录
@@ -79,7 +79,7 @@ func loadConfigMap() map[string]string {
 func saveConfigMap(m map[string]string) error {
 	os.MkdirAll(GetDefaultDataDir(), 0755)
 	var b strings.Builder
-	for _, k := range []string{keyDataDir, keyResultOutputDir, keyProxy} {
+	for _, k := range []string{keyDataDir, keyResultOutputDir, keyProxy, keyLanguage} {
 		if v := strings.TrimSpace(m[k]); v != "" {
 			b.WriteString(k)
 			b.WriteByte('=')
@@ -268,73 +268,34 @@ func ResetProxy() {
 	_proxyOnce.Do(func() {})
 }
 
-// GetProxyPool 返回代理池列表（每行一个代理）
-func GetProxyPool() []string {
-	_proxyPoolOnce.Do(func() {
+// GetLanguage 返回当前界面语言代码（"zh"/"en"/"ja"），未设置时返回空字符串。
+func GetLanguage() string {
+	_languageOnce.Do(func() {
 		m := loadConfigMap()
-		poolStr := strings.TrimSpace(m[keyProxyPool])
-		if poolStr == "" {
-			_proxyPool = []string{}
-			return
-		}
-		lines := strings.Split(poolStr, "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line != "" && !strings.HasPrefix(line, "#") {
-				normalized := NormalizeProxyAddress(line)
-				if normalized != "" {
-					_proxyPool = append(_proxyPool, normalized)
-				}
-			}
-		}
+		_language = strings.TrimSpace(m[keyLanguage])
 	})
-	return _proxyPool
+	return _language
 }
 
-// SetProxyPool 设置代理池（每行一个代理，支持注释行）
-func SetProxyPool(proxies []string) error {
-	normalized := make([]string, 0, len(proxies))
-	for _, p := range proxies {
-		p = strings.TrimSpace(p)
-		if p != "" && !strings.HasPrefix(p, "#") {
-			norm := NormalizeProxyAddress(p)
-			if norm != "" {
-				normalized = append(normalized, norm)
-			}
-		}
+// SetLanguage 持久化界面语言；仅接受 "zh"/"en"/"ja"，其他值返回错误。
+func SetLanguage(lang string) error {
+	lang = strings.TrimSpace(lang)
+	if lang != "zh" && lang != "en" && lang != "ja" {
+		return fmt.Errorf("不支持的语言: %s", lang)
 	}
-
 	m := loadConfigMap()
-	if len(normalized) == 0 {
-		delete(m, keyProxyPool)
-	} else {
-		m[keyProxyPool] = strings.Join(normalized, "\n")
-	}
-
+	m[keyLanguage] = lang
 	if err := saveConfigMap(m); err != nil {
 		return err
 	}
-
-	_proxyPool = normalized
-	_proxyPoolOnce = sync.Once{}
-	_proxyPoolOnce.Do(func() {})
+	_language = lang
+	_languageOnce = sync.Once{}
+	_languageOnce.Do(func() {})
 	return nil
 }
 
-// ResetProxyPool 清空代理池配置
-func ResetProxyPool() {
-	m := loadConfigMap()
-	delete(m, keyProxyPool)
-	_ = saveConfigMap(m)
-	_proxyPool = []string{}
-	_proxyPoolOnce = sync.Once{}
-	_proxyPoolOnce.Do(func() {})
-}
-
-
 // NormalizeProxyAddress 归一化常见代理写法为完整 URL:
-//   - scheme://host:port:user:pass -> scheme://user:pass@host:port (bestgo 等格式)
-//   - 已带 scheme 且含 @ 的 URL 原样返回
+//   - 已带 scheme 的 URL 原样返回
 //   - host:port:user:pass -> http://user:pass@host:port (cliproxy 等导出格式)
 //   - host:port -> socks5://host:port
 //   - user:pass@host:port -> http://user:pass@host:port

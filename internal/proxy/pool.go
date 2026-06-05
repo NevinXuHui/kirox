@@ -1,89 +1,242 @@
 package proxy
 
 import (
-	"log"
+	"encoding/json"
+	"fmt"
+	"math"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 )
 
-// Pool 代理池，支持轮询分配和使用计数
-type Pool struct {
-	proxies   []string          // 代理列表
-	useCounts map[string]int    // 每个代理的使用次数
-	index     int               // 当前轮询索引
-	mu        sync.Mutex
+// PoolEntry 多代理池条目
+type PoolEntry struct {
+	ID      string `json:"id"`      // 内部 ID，UI 用
+	Name    string `json:"name"`    // 用户可见名称
+	URL     string `json:"url"`     // 完整代理 URL（已归一化）
+	Weight  int    `json:"weight"`  // 1-100，越高被选中概率越大
+	Enabled bool   `json:"enabled"` // 关闭时不参与抽签
 }
 
-// NewPool 创建代理池
-func NewPool(proxies []string) *Pool {
-	if len(proxies) == 0 {
+// poolFile JSON 持久化结构
+type poolFile struct {
+	Entries []PoolEntry `json:"entries"`
+}
+
+const (
+	// Power 用于"软最大化"：>1 时拉大权重差，<1 时压平。0.6 保证哪怕权重 1 vs 100 也有 ~6% 概率被选中。
+	weightPower = 0.6
+)
+
+var (
+	poolMu      sync.Mutex
+	poolLoaded  bool
+	poolEntries []PoolEntry
+	poolPath    string
+)
+
+// InitPool 在 App 启动时调用一次，传入数据目录
+func InitPool(dataDir string) {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	poolPath = filepath.Join(dataDir, "proxy_pool.json")
+	poolLoaded = false
+	_ = loadPoolLocked()
+}
+
+func loadPoolLocked() error {
+	if poolLoaded {
 		return nil
 	}
-
-	pool := &Pool{
-		proxies:   make([]string, len(proxies)),
-		useCounts: make(map[string]int),
-		index:     0,
+	poolEntries = nil
+	poolLoaded = true
+	b, err := os.ReadFile(poolPath)
+	if err != nil {
+		return nil
 	}
-
-	copy(pool.proxies, proxies)
-	for _, p := range pool.proxies {
-		pool.useCounts[p] = 0
+	var pf poolFile
+	if err := json.Unmarshal(b, &pf); err != nil {
+		return fmt.Errorf("解析代理池失败: %w", err)
 	}
-
-	log.Printf("[代理池] 已加载 %d 个代理", len(proxies))
-	return pool
+	poolEntries = pf.Entries
+	return nil
 }
 
-// Acquire 获取下一个可用代理（轮询策略）
-func (p *Pool) Acquire() string {
-	if p == nil || len(p.proxies) == 0 {
-		return ""
+func savePoolLocked() error {
+	if poolPath == "" {
+		return fmt.Errorf("代理池未初始化")
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	proxy := p.proxies[p.index]
-	p.useCounts[proxy]++
-	p.index = (p.index + 1) % len(p.proxies)
-
-	log.Printf("[代理池] 分配代理: %s (使用次数: %d)", maskProxy(proxy), p.useCounts[proxy])
-	return proxy
+	b, err := json.MarshalIndent(poolFile{Entries: poolEntries}, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(poolPath), 0o755); err != nil {
+		return err
+	}
+	tmp := poolPath + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, poolPath)
 }
 
-// Release 释放代理（当前实现为空，预留用于连接池管理）
-func (p *Pool) Release(proxy string) {
-	// 预留接口，用于未来实现连接池管理
+// List 返回当前所有代理（含禁用项）
+func List() []PoolEntry {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	loadPoolLocked()
+	out := make([]PoolEntry, len(poolEntries))
+	copy(out, poolEntries)
+	return out
 }
 
-// GetStats 获取代理池统计信息
-func (p *Pool) GetStats() map[string]interface{} {
-	if p == nil {
-		return map[string]interface{}{
-			"total": 0,
-			"usage": map[string]int{},
+func newID() string {
+	return fmt.Sprintf("p_%d_%04d", time.Now().UnixNano(), rand.Intn(10000))
+}
+
+// Add 新增一条代理。url 会被外部归一化后传入。
+func Add(entry PoolEntry) (PoolEntry, error) {
+	entry.URL = strings.TrimSpace(entry.URL)
+	if entry.URL == "" {
+		return entry, fmt.Errorf("代理地址不能为空")
+	}
+	if entry.Weight <= 0 {
+		entry.Weight = 50
+	}
+	if entry.Weight > 100 {
+		entry.Weight = 100
+	}
+	entry.Name = strings.TrimSpace(entry.Name)
+	if entry.Name == "" {
+		entry.Name = entry.URL
+	}
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	loadPoolLocked()
+	for _, e := range poolEntries {
+		if e.URL == entry.URL {
+			return entry, fmt.Errorf("该代理已存在")
 		}
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	usage := make(map[string]int)
-	for proxy, count := range p.useCounts {
-		usage[maskProxy(proxy)] = count
+	if entry.ID == "" {
+		entry.ID = newID()
 	}
-
-	return map[string]interface{}{
-		"total": len(p.proxies),
-		"usage": usage,
+	entry.Enabled = true
+	poolEntries = append(poolEntries, entry)
+	if err := savePoolLocked(); err != nil {
+		// 回滚
+		poolEntries = poolEntries[:len(poolEntries)-1]
+		return entry, err
 	}
+	return entry, nil
 }
 
-// maskProxy 遮蔽代理地址中的敏感信息（用户名/密码）
-func maskProxy(proxy string) string {
-	// 简单实现：只显示前10个字符
-	if len(proxy) > 10 {
-		return proxy[:10] + "***"
+// Update 修改一条（按 id 匹配）。url 不允许改成已存在的另一条。
+func Update(id string, patch PoolEntry) (PoolEntry, error) {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	loadPoolLocked()
+	idx := -1
+	for i, e := range poolEntries {
+		if e.ID == id {
+			idx = i
+			break
+		}
 	}
-	return proxy
+	if idx < 0 {
+		return PoolEntry{}, fmt.Errorf("代理不存在")
+	}
+	cur := poolEntries[idx]
+	if name := strings.TrimSpace(patch.Name); name != "" {
+		cur.Name = name
+	}
+	if u := strings.TrimSpace(patch.URL); u != "" && u != cur.URL {
+		for j, e := range poolEntries {
+			if j != idx && e.URL == u {
+				return PoolEntry{}, fmt.Errorf("该代理 URL 已存在")
+			}
+		}
+		cur.URL = u
+	}
+	if patch.Weight > 0 {
+		w := patch.Weight
+		if w > 100 {
+			w = 100
+		}
+		cur.Weight = w
+	}
+	cur.Enabled = patch.Enabled
+	poolEntries[idx] = cur
+	if err := savePoolLocked(); err != nil {
+		return PoolEntry{}, err
+	}
+	return cur, nil
+}
+
+// Delete 按 id 删除
+func Delete(id string) error {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	loadPoolLocked()
+	for i, e := range poolEntries {
+		if e.ID == id {
+			poolEntries = append(poolEntries[:i], poolEntries[i+1:]...)
+			return savePoolLocked()
+		}
+	}
+	return fmt.Errorf("代理不存在")
+}
+
+// PickRandom 按权重抽签返回一个启用的代理 URL；池为空或全部禁用返回空串。
+// 使用 weightPower 软化：让低权重也有非零概率被命中，避免全部任务落到单一代理。
+func PickRandom() string {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	loadPoolLocked()
+
+	type cand struct {
+		url  string
+		soft float64
+	}
+	candidates := make([]cand, 0, len(poolEntries))
+	var total float64
+	for _, e := range poolEntries {
+		if e.URL == "" {
+			continue
+		}
+		w := e.Weight
+		if w <= 0 {
+			w = 1
+		}
+		soft := math.Pow(float64(w), weightPower)
+		candidates = append(candidates, cand{e.URL, soft})
+		total += soft
+	}
+	if total <= 0 || len(candidates) == 0 {
+		return ""
+	}
+	r := rand.Float64() * total
+	for _, c := range candidates {
+		r -= c.soft
+		if r <= 0 {
+			return c.url
+		}
+	}
+	return candidates[len(candidates)-1].url
+}
+
+// HasEnabled 是否至少一个启用的池条目
+func HasEnabled() bool {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	loadPoolLocked()
+	for _, e := range poolEntries {
+		if e.Enabled && e.URL != "" {
+			return true
+		}
+	}
+	return false
 }

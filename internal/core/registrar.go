@@ -64,7 +64,9 @@ type Registrar struct {
 
 // NewRegistrar 创建注册器
 func NewRegistrar(cfg *Config) *Registrar {
-	identity := browser.RandomIdentity()
+	// 按代理绑定稳定指纹：同一出口 IP 下短时间内重复使用同一硬件身份，
+	// 只有 lsubid 前缀 / webpackHash 等真实浏览器会话间也会变的字段每次刷新。
+	identity := browser.IdentityForProxy(cfg.Proxy)
 	log.Printf("[指纹] Chrome: %s | GPU: %s | 内存: %dGB | 核心: %d | 分辨率: %dx%d (%d-bit)", 
 		identity.ChromeVer, identity.GPUModel, identity.DeviceMemory, identity.HardwareConcurrency, 
 		identity.Screen.Width, identity.Screen.Height, identity.Screen.ColorDepth)
@@ -310,6 +312,20 @@ func (r *Registrar) Step3Email() error {
 	if r.Cfg.UseTempMailLol && r.Cfg.TempMailLolProvider != nil {
 		log.Println("[3] 使用 TempMail.lol 邮箱")
 		r.Email = r.Cfg.TempMailLolProvider.GetAddress()
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
+	if r.Cfg.UseCloudMail && r.Cfg.CloudMailProvider != nil {
+		log.Println("[3] 使用 Cloud-Mail 邮箱")
+		r.EmailSvc = email.NewCloudMailService(r.Cfg.CloudMailProvider)
+		r.Email = r.EmailSvc.GetAddress()
+		log.Printf("email=%s", r.Email)
+		return nil
+	}
+	if r.Cfg.UseMoeMail && r.Cfg.MoeMailProvider != nil {
+		log.Println("[3] 使用 MoeMail 邮箱（已创建）")
+		r.EmailSvc = email.NewMoEmailServiceFromProvider(r.Cfg.MoeMailProvider)
+		r.Email = r.EmailSvc.GetAddress()
 		log.Printf("email=%s", r.Email)
 		return nil
 	}

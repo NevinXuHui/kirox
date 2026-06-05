@@ -130,16 +130,16 @@ export function ResetProxy() {
   return window['go']['main']['App']['ResetProxy']();
 }
 
-export function ResetProxyPool() {
-  return window['go']['main']['App']['ResetProxyPool']();
-}
-
 export function ResetResultOutputDir() {
   return window['go']['main']['App']['ResetResultOutputDir']();
 }
 
 export function SaveLuckMailConfigs(arg1) {
   return window['go']['main']['App']['SaveLuckMailConfigs'](arg1);
+}
+
+export function SaveCloudMailConfigs(arg1) {
+  return window['go']['main']['App']['SaveCloudMailConfigs'](arg1);
 }
 
 export function SaveMoeMailConfigs(arg1) {
@@ -170,10 +170,6 @@ export function SetProxy(arg1) {
   return window['go']['main']['App']['SetProxy'](arg1);
 }
 
-export function SetProxyPool(arg1) {
-  return window['go']['main']['App']['SetProxyPool'](arg1);
-}
-
 export function SetResultOutputDir(arg1) {
   return window['go']['main']['App']['SetResultOutputDir'](arg1);
 }
@@ -186,6 +182,10 @@ export function StopTask() {
   return window['go']['main']['App']['StopTask']();
 }
 
+export function TestCloudMailConnection(arg1) {
+  return window['go']['main']['App']['TestCloudMailConnection'](arg1);
+}
+
 export function TestLuckMailConnection(arg1) {
   return window['go']['main']['App']['TestLuckMailConnection'](arg1);
 }
@@ -194,16 +194,40 @@ export function TestMoeMailConnection(arg1) {
   return window['go']['main']['App']['TestMoeMailConnection'](arg1);
 }
 
-export function TestProxyPool(arg1) {
-  return window['go']['main']['App']['TestProxyPool'](arg1);
-}
-
 export function TestTempMailLolConnection(arg1) {
   return window['go']['main']['App']['TestTempMailLolConnection'](arg1);
 }
 
 export function TestYYDSMailConnection(arg1) {
   return window['go']['main']['App']['TestYYDSMailConnection'](arg1);
+}
+
+export function GetCloudMailConfigs() {
+  return window['go']['main']['App']['GetCloudMailConfigs']();
+}
+
+export function GetOSLanguage() {
+  return window['go']['main']['App']['GetOSLanguage']();
+}
+
+export function ListProxyPool() {
+  return window['go']['main']['App']['ListProxyPool']();
+}
+
+export function ResetFingerprintCache() {
+  return window['go']['main']['App']['ResetFingerprintCache']();
+}
+
+export function SetLanguage(arg1) {
+  return window['go']['main']['App']['SetLanguage'](arg1);
+}
+
+export function TestProxyEntry(arg1) {
+  return window['go']['main']['App']['TestProxyEntry'](arg1);
+}
+
+export function UpdateProxyEntry(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['UpdateProxyEntry'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function VerifyLicense(arg1) {

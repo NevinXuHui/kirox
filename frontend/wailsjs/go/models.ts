@@ -1,5 +1,25 @@
 export namespace email {
 	
+	export class CloudMailConfig {
+	    name: string;
+	    url: string;
+	    email: string;
+	    password: string;
+	    domains: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CloudMailConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.email = source["email"];
+	        this.password = source["password"];
+	        this.domains = source["domains"];
+	    }
+	}
 	export class LuckMailConfig {
 	    name: string;
 	    token: string;
@@ -105,8 +125,29 @@ export namespace proxy {
 	        this.error = source["error"];
 	    }
 	}
+	export class PoolEntry {
+	    id: string;
+	    name: string;
+	    url: string;
+	    weight: number;
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PoolEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.weight = source["weight"];
+	        this.enabled = source["enabled"];
+	    }
+	}
 
 }
+
 
 export namespace task {
 	
@@ -122,6 +163,9 @@ export namespace task {
 	    luckmailConfig?: email.LuckMailConfig;
 	    yydsmailConfig?: email.YYDSMailConfig;
 	    tempmaillolConfig?: email.TempMailLolConfig;
+	    cloudmailDomains: string[];
+	    cloudmailConfigs: Record<string, Array<email.CloudMailConfig>>;
+	    cloudmailRandomMode: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new StartTaskRequest(source);
@@ -140,6 +184,9 @@ export namespace task {
 	        this.luckmailConfig = this.convertValues(source["luckmailConfig"], email.LuckMailConfig);
 	        this.yydsmailConfig = this.convertValues(source["yydsmailConfig"], email.YYDSMailConfig);
 	        this.tempmaillolConfig = this.convertValues(source["tempmaillolConfig"], email.TempMailLolConfig);
+	        this.cloudmailDomains = source["cloudmailDomains"];
+	        this.cloudmailConfigs = this.convertValues(source["cloudmailConfigs"], Array<email.CloudMailConfig>, true);
+	        this.cloudmailRandomMode = source["cloudmailRandomMode"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
