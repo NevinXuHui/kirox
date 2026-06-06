@@ -20,6 +20,7 @@ type LuckMailConfig struct {
 	Token       string `json:"token"`       // 接口秘钥
 	ProjectCode string `json:"projectCode"` // 项目代码
 	EmailType   string `json:"emailType"`   // 邮箱类型 (ms_graph/ms_imap/google_variant/self_built, 可选)
+	VariantMode string `json:"variantMode"` // 谷歌变种模式 (dot/plus/mixed, 仅 google_variant 有效)
 	Domain      string `json:"domain"`      // 指定域名 (可选)
 	BaseURL     string `json:"baseURL"`     // API 地址 (可选，默认 https://mails.luckyous.com)
 }
@@ -106,7 +107,7 @@ type LuckMailOrderData struct {
 	OrderNo        string `json:"order_no"`
 	EmailAddress   string `json:"email_address"`
 	Project        string `json:"project"`
-	Price          string `json:"price"`          // API 返回字符串
+	Price          string `json:"price"` // API 返回字符串
 	TimeoutSeconds int    `json:"timeout_seconds"`
 	ExpiredAt      string `json:"expired_at"`
 }
@@ -134,6 +135,9 @@ type LuckMailDomainItem struct {
 }
 
 var defaultLuckMailDomains = []LuckMailDomainItem{
+	// Google 变种域名
+	{Domain: "gmail.com", EmailType: "google_variant"},
+	{Domain: "googlemail.com", EmailType: "google_variant"},
 	// Microsoft Graph 域名
 	{Domain: "outlook.com", EmailType: "ms_graph", Count: 361802},
 	{Domain: "hotmail.com", EmailType: "ms_graph", Count: 133313},
@@ -279,6 +283,9 @@ func (c *LuckMailClient) CreateOrder() (*LuckMailOrderData, error) {
 	}
 	if c.config.EmailType != "" {
 		reqData["email_type"] = c.config.EmailType
+	}
+	if c.config.EmailType == "google_variant" && c.config.VariantMode != "" {
+		reqData["variant_mode"] = c.config.VariantMode
 	}
 	if c.config.Domain != "" {
 		reqData["domain"] = c.config.Domain

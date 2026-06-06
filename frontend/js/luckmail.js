@@ -7,6 +7,9 @@ var luckmailConfigStatus = {};
 var luckmailDomains = []; // 缓存可用域名列表
 
 var defaultLuckMailDomains = [
+  // Google 变种域名
+  { domain: 'gmail.com', email_type: 'google_variant' },
+  { domain: 'googlemail.com', email_type: 'google_variant' },
   // Microsoft Graph 域名
   { domain: 'outlook.com', email_type: 'ms_graph', count: 361802 },
   { domain: 'hotmail.com', email_type: 'ms_graph', count: 133313 },
@@ -99,7 +102,7 @@ function renderLuckMailInlineList() {
     html += '<div class="moemail-config-item">' +
       '<div class="moemail-config-info">' +
         '<div class="moemail-config-name">' + escapeHtml(cfg.name) + '</div>' +
-        '<div class="moemail-config-url">' + escapeHtml(cfg.projectCode) + (cfg.emailType ? ' / ' + escapeHtml(cfg.emailType) : '') + '</div>' +
+        '<div class="moemail-config-url">' + escapeHtml(cfg.projectCode) + (cfg.emailType ? ' / ' + escapeHtml(cfg.emailType) : '') + (cfg.variantMode ? ' / ' + escapeHtml(cfg.variantMode) : '') + '</div>' +
       '</div>' +
       '<div class="moemail-config-actions">' +
         statusHtml +
@@ -112,6 +115,18 @@ function renderLuckMailInlineList() {
   listDiv.innerHTML = html;
 }
 
+function getLuckMailVariantMode() {
+  var el = document.getElementById('luckmail-inline-variant-mode');
+  return el ? el.value.trim() : '';
+}
+
+function updateLuckMailVariantModeVisibility() {
+  var row = document.getElementById('luckmail-variant-mode-group');
+  var emailTypeEl = document.getElementById('luckmail-inline-emailtype');
+  if (!row || !emailTypeEl) return;
+  row.style.display = emailTypeEl.value.trim() === 'google_variant' ? 'block' : 'none';
+}
+
 // 内联添加 LuckMail 配置
 async function inlineAddLuckMail() {
   alert('inlineAddLuckMail 函数被调用了！');
@@ -120,6 +135,7 @@ async function inlineAddLuckMail() {
   var token = document.getElementById('luckmail-inline-token').value.trim();
   var projectCode = document.getElementById('luckmail-inline-project').value.trim();
   var emailType = document.getElementById('luckmail-inline-emailtype').value.trim();
+  var variantMode = getLuckMailVariantMode();
   var domain = document.getElementById('luckmail-inline-domain').value.trim();
 
   console.log('[LuckMail] token:', token, 'projectCode:', projectCode);
@@ -131,6 +147,7 @@ async function inlineAddLuckMail() {
   if (!name) {
     var nameParts = ['LuckMail'];
     if (emailType) nameParts.push(emailType);
+    if (emailType === 'google_variant' && variantMode) nameParts.push(variantMode);
     if (domain) nameParts.push(domain);
     if (nameParts.length === 1) nameParts.push(luckmailConfigs.length + 1);
     name = nameParts.join('-');
@@ -141,6 +158,7 @@ async function inlineAddLuckMail() {
     token: token,
     projectCode: projectCode,
     emailType: emailType,
+    variantMode: emailType === 'google_variant' ? variantMode : '',
     domain: domain
   });
 
@@ -157,6 +175,9 @@ async function inlineAddLuckMail() {
   document.getElementById('luckmail-inline-token').value = 'luck_a1209d58721677ccabdd828f0a7912da';
   document.getElementById('luckmail-inline-project').value = 'kiro';
   document.getElementById('luckmail-inline-emailtype').value = 'ms_imap';
+  var variantModeEl = document.getElementById('luckmail-inline-variant-mode');
+  if (variantModeEl) variantModeEl.value = 'dot';
+  updateLuckMailVariantModeVisibility();
   document.getElementById('luckmail-inline-domain').value = '';
 
   // 重置域名列表，恢复默认状态
@@ -197,6 +218,7 @@ async function inlineTestLuckMail() {
       token: token,
       projectCode: projectCode,
       emailType: document.getElementById('luckmail-inline-emailtype').value.trim(),
+      variantMode: document.getElementById('luckmail-inline-emailtype').value.trim() === 'google_variant' ? getLuckMailVariantMode() : '',
       domain: document.getElementById('luckmail-inline-domain').value.trim()
     });
     var result = await window.go.main.App.TestLuckMailConnection(config);
@@ -280,7 +302,9 @@ async function fetchLuckMailDomains() {
     var config = JSON.stringify({
       name: 'temp',
       token: token,
-      projectCode: projectCode
+      projectCode: projectCode,
+      emailType: document.getElementById('luckmail-inline-emailtype').value.trim(),
+      variantMode: document.getElementById('luckmail-inline-emailtype').value.trim() === 'google_variant' ? getLuckMailVariantMode() : ''
     });
     var result = await window.go.main.App.GetLuckMailDomains(config);
     if (!result.error && result.domains) {
@@ -295,6 +319,7 @@ async function fetchLuckMailDomains() {
 
 // 邮箱类型改变时更新域名列表
 function onLuckMailEmailTypeChange() {
+  updateLuckMailVariantModeVisibility();
   updateLuckMailDomainSelect();
 }
 
@@ -348,6 +373,7 @@ window.addEventListener('DOMContentLoaded', function() {
   console.log('[LuckMail] inlineAddLuckMail 函数存在:', typeof inlineAddLuckMail);
   console.log('[LuckMail] inlineTestLuckMail 函数存在:', typeof inlineTestLuckMail);
   loadLuckMailConfigs();
+  updateLuckMailVariantModeVisibility();
   updateLuckMailDomainSelect();
 });
 

@@ -20,6 +20,24 @@ func TestGetDefaultLuckMailDomainsFiltersByEmailType(t *testing.T) {
 	}
 }
 
+func TestGetDefaultLuckMailDomainsReturnsGoogleVariantDomains(t *testing.T) {
+	domains := GetDefaultLuckMailDomains("google_variant")
+	want := []string{"gmail.com", "googlemail.com"}
+
+	if len(domains) != len(want) {
+		t.Fatalf("expected %d google_variant domains, got %d", len(want), len(domains))
+	}
+
+	for i, domain := range domains {
+		if domain.Domain != want[i] {
+			t.Fatalf("domain %d: expected %q, got %q", i, want[i], domain.Domain)
+		}
+		if domain.EmailType != "google_variant" {
+			t.Fatalf("domain %d: expected email type google_variant, got %q", i, domain.EmailType)
+		}
+	}
+}
+
 func TestGetDefaultLuckMailDomainsIncludesSelfBuiltDomains(t *testing.T) {
 	domains := GetDefaultLuckMailDomains("self_built")
 	if len(domains) != 26 {
@@ -41,7 +59,7 @@ func TestGetDefaultLuckMailDomainsIncludesSelfBuiltDomains(t *testing.T) {
 
 func TestGetDefaultLuckMailDomainsReturnsAllWhenEmailTypeEmpty(t *testing.T) {
 	domains := GetDefaultLuckMailDomains("")
-	if len(domains) < 31 {
-		t.Fatalf("expected at least 31 default domains, got %d", len(domains))
+	if len(domains) < 33 {
+		t.Fatalf("expected at least 33 default domains, got %d", len(domains))
 	}
 }
