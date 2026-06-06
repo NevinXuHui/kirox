@@ -450,6 +450,8 @@ function selectYYDSMailConfig(idx) {
   if (typeof saveConfig === 'function') {
     saveConfig();
   }
+}
+
 // ===== Cloud-Mail 域名加载/选择 =====
 async function loadCloudMailDomainsToList() {
   const listDiv = document.getElementById('cfg-cloudmail-domains-list');
@@ -558,7 +560,6 @@ function toggleCloudMailDomain(domain) {
 function selectAllCloudMailDomains() {
   selectedCloudMailDomains = allCloudMailDomains.map(item => item.domain);
   updateCloudMailDomainStyles();
-
 }
 
 // 关闭任务模态框

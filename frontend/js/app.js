@@ -216,16 +216,6 @@ async function loadProxy() {
   } catch(e) {}
 }
 
-async function loadProxyPool() {
-  try {
-    var proxies = await window.go.main.App.GetProxyPool();
-    var el = document.getElementById('cfg-proxy-pool');
-    if (el && proxies && proxies.length > 0) {
-      el.value = proxies.join('\n');
-    }
-  } catch(e) {}
-}
-
 function renderProxyDetectCard(state, payload) {
   var box = document.getElementById('proxy-detect-card');
   if (!box) return;
@@ -293,134 +283,6 @@ async function resetProxy() {
   } catch(e) {
     showToast(tr('toast.operationFailed', '操作失败') + ': ' + e.message, 'error');
   }
-}
-
-// 代理池管理
-async function saveProxyPool() {
-  var el = document.getElementById('cfg-proxy-pool');
-  if (!el) return;
-  try {
-    var lines = el.value.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line && !line.startsWith('#'); });
-    var result = await window.go.main.App.SetProxyPool(JSON.stringify(lines));
-    if (result.error) {
-      showToast(result.error, 'error');
-      return;
-    }
-    showToast('代理池已保存 (' + lines.length + ' 个代理)');
-    renderProxyPoolStatus('success', lines.length + ' 个代理已保存');
-  } catch(e) {
-    showToast('保存失败: ' + e.message, 'error');
-  }
-}
-
-async function resetProxyPool() {
-  try {
-    await window.go.main.App.ResetProxyPool();
-    var el = document.getElementById('cfg-proxy-pool');
-    if (el) el.value = '';
-    renderProxyPoolStatus('hidden');
-    showToast('已清空代理池');
-  } catch(e) {
-    showToast('清空失败: ' + e.message, 'error');
-  }
-}
-
-async function testProxyPool() {
-  var el = document.getElementById('cfg-proxy-pool');
-  if (!el) return;
-  var lines = el.value.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line && !line.startsWith('#'); });
-  if (lines.length === 0) {
-    showToast('请先输入代理地址', 'error');
-    return;
-  }
-
-  renderProxyPoolStatus('loading', '正在测试代理池（最多测试前10个）...');
-
-  try {
-    var result = await window.go.main.App.TestProxyPool(JSON.stringify(lines));
-    if (result.error) {
-      renderProxyPoolStatus('error', result.error);
-      return;
-    }
-
-    // 渲染详细结果
-    renderProxyPoolResults(result);
-  } catch(e) {
-    renderProxyPoolStatus('error', '测试失败: ' + e.message);
-  }
-}
-
-function renderProxyPoolResults(result) {
-  var card = document.getElementById('proxy-pool-status');
-  if (!card) return;
-
-  card.style.display = 'block';
-  card.style.backgroundColor = 'var(--card-bg)';
-  card.style.border = '1px solid var(--border)';
-  card.style.borderRadius = '8px';
-  card.style.padding = '12px';
-
-  var html = '<div style="margin-bottom:8px;font-weight:600;color:var(--text);">测试结果 (' + result.tested + '/' + result.total + ')</div>';
-
-  for (var i = 0; i < result.results.length; i++) {
-    var r = result.results[i];
-    var itemStyle = 'padding:8px;margin-bottom:6px;border-radius:6px;font-size:11px;';
-
-    if (r.ok) {
-      var loc = [r.country, r.region, r.city].filter(Boolean).join(' · ');
-      itemStyle += 'background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.35);';
-      html += '<div style="' + itemStyle + '">';
-      html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
-      html += '<span style="color:#10b981;font-weight:600;">✓ #' + (i+1) + '</span>';
-      html += '<span style="padding:1px 4px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">' + (r.scheme || '').toUpperCase() + '</span>';
-      html += '<span style="color:var(--text);font-weight:600;">' + (r.ip || '') + '</span>';
-      if (loc) html += '<span style="color:var(--muted);">· ' + loc + '</span>';
-      html += '</div>';
-      if (r.isp) html += '<div style="color:var(--muted);font-size:10px;">' + r.isp + '</div>';
-      html += '</div>';
-    } else {
-      itemStyle += 'background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);';
-      html += '<div style="' + itemStyle + '">';
-      html += '<span style="color:#ef4444;font-weight:600;">✗ #' + (i+1) + '</span>';
-      html += '<span style="color:#ef4444;margin-left:6px;">' + (r.error || '检测失败') + '</span>';
-      html += '</div>';
-    }
-  }
-
-  if (result.total > result.tested) {
-    html += '<div style="margin-top:8px;color:var(--muted);font-size:11px;">仅显示前 ' + result.tested + ' 个代理的测试结果</div>';
-  }
-
-  card.innerHTML = html;
-}
-
-function renderProxyPoolStatus(type, message) {
-  var card = document.getElementById('proxy-pool-status');
-  if (!card) return;
-  if (type === 'hidden') {
-    card.style.display = 'none';
-    return;
-  }
-  card.style.display = 'block';
-
-  if (type === 'loading') {
-    card.style.backgroundColor = 'var(--card-bg)';
-    card.style.border = '1px solid var(--border)';
-    card.style.color = 'var(--muted)';
-    card.textContent = message;
-    return;
-  }
-
-  var colors = {
-    'info': { bg: 'var(--info-bg)', text: 'var(--info)' },
-    'success': { bg: 'var(--success-bg)', text: 'var(--success)' },
-    'error': { bg: 'var(--danger-bg)', text: 'var(--danger)' }
-  };
-  var color = colors[type] || colors['info'];
-  card.style.backgroundColor = color.bg;
-  card.style.border = 'none';
-  card.style.color = color.text;
-  card.textContent = message;
 }
 
 // UI 状态
@@ -497,6 +359,8 @@ function getFormConfig() {
     var idx = selectedTempMailLolConfigIdx || 0;
     if (idx >= tempmaillolConfigs.length) idx = 0;
     config.tempmaillolConfig = tempmaillolConfigs[idx];
+  }
+
   // 如果选择了 Cloud-Mail，添加域名信息和配置
   if (config.emailProvider === 'cloudmail') {
     if (!selectedCloudMailDomains || selectedCloudMailDomains.length === 0) {
@@ -521,7 +385,7 @@ function getFormConfig() {
       });
       config.cloudmailRandomMode = false;
     }
-
+  }
 
   return config;
 }
