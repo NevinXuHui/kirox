@@ -555,8 +555,16 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 				break
 			}
 
-			// 不重试的错误类型（含 context 取消 / 被封 / 临时邮箱重复）
-			noRetryErrors := []string{"suspended", "临时邮箱不可能已存在", "邮箱创建失败", "context canceled", "context deadline exceeded"}
+			// 不重试的错误类型（含 context 取消 / 被封 / 临时邮箱重复 / HTTP 400）
+			noRetryErrors := []string{
+				"suspended",
+				"临时邮箱不可能已存在",
+				"邮箱创建失败",
+				"context canceled",
+				"context deadline exceeded",
+				"(400)",  // HTTP 400 错误通常是请求被拦截，重试无意义
+				"400)",   // 兼容不同格式
+			}
 			shouldRetry := true
 			for _, noRetry := range noRetryErrors {
 				if strings.Contains(errorMsg, noRetry) {
