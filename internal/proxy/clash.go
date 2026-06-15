@@ -155,7 +155,7 @@ func (c *ClashClient) GetProxies() (map[string]ClashProxy, error) {
 	return resp.Proxies, nil
 }
 
-// GetProxyGroups 获取可切换的代理组（Selector/URLTest 等）
+// GetProxyGroups 获取可切换的代理组（只返回全局代理组）
 func (c *ClashClient) GetProxyGroups() ([]ClashProxy, error) {
 	proxies, err := c.GetProxies()
 	if err != nil {
@@ -163,11 +163,23 @@ func (c *ClashClient) GetProxyGroups() ([]ClashProxy, error) {
 	}
 
 	var groups []ClashProxy
+	// 优先查找常见的全局代理组名称
+	globalNames := []string{"GLOBAL", "Proxy", "节点选择", "🚀 节点选择"}
+
+	for _, name := range globalNames {
+		if proxy, ok := proxies[name]; ok && len(proxy.All) > 0 {
+			proxy.Name = name
+			groups = append(groups, proxy)
+			return groups, nil // 找到第一个全局代理组就返回
+		}
+	}
+
+	// 如果没有找到常见的全局代理组，返回第一个有可选节点的代理组
 	for name, proxy := range proxies {
-		// 只返回有可选节点的代理组
 		if len(proxy.All) > 0 {
 			proxy.Name = name
 			groups = append(groups, proxy)
+			return groups, nil
 		}
 	}
 

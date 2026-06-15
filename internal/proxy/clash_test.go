@@ -135,9 +135,13 @@ func TestClashClientGetProxyGroups(t *testing.T) {
 		t.Fatalf("GetProxyGroups failed: %v", err)
 	}
 
-	// 应该只返回有 All 字段的代理组（GLOBAL 和 Proxy）
-	if len(groups) != 2 {
-		t.Errorf("expected 2 groups, got %d", len(groups))
+	// 应该只返回全局代理组（GLOBAL）
+	if len(groups) != 1 {
+		t.Errorf("expected 1 global group, got %d", len(groups))
+	}
+
+	if len(groups) > 0 && groups[0].Name != "GLOBAL" {
+		t.Errorf("expected GLOBAL group, got %s", groups[0].Name)
 	}
 }
 
