@@ -764,7 +764,8 @@ function openClashProxySelector() {
 // 显示 Clash 节点选择弹窗
 function showClashProxyModal(groups) {
   var modal = document.createElement('div');
-  modal.className = 'modal active';
+  modal.id = 'clash-proxy-modal';
+  modal.className = 'modal-overlay show';
   modal.style.zIndex = '10000';
 
   var groupsHtml = groups.map(function(group) {
@@ -781,17 +782,26 @@ function showClashProxyModal(groups) {
       '</div>';
   }).join('');
 
-  modal.innerHTML = '<div class="modal-content" style="max-width:600px;max-height:80vh;overflow-y:auto;">' +
-    '<div class="modal-header">' +
-    '<h3 style="margin:0;">切换 Clash 节点</h3>' +
-    '<button class="modal-close" onclick="closeClashModal()">×</button>' +
+  modal.innerHTML = '<div style="width:100%;max-width:600px;padding:24px;">' +
+    '<div class="card" style="padding:24px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid var(--border-color);padding-bottom:12px;">' +
+    '<h3 style="margin:0;font-size:16px;font-weight:600;">切换 Clash 节点</h3>' +
+    '<button onclick="closeClashModal()" style="background:none;border:none;font-size:24px;color:var(--text-secondary);cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.2s;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\'none\'">×</button>' +
     '</div>' +
-    '<div class="modal-body" style="padding:16px;">' +
+    '<div style="max-height:60vh;overflow-y:auto;">' +
     groupsHtml +
+    '</div>' +
     '</div>' +
     '</div>';
 
   document.body.appendChild(modal);
+
+  // 点击遮罩层关闭
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      closeClashModal();
+    }
+  });
 
   // 绑定节点切换事件
   modal.querySelectorAll('.clash-node-btn').forEach(function(btn) {
@@ -807,9 +817,10 @@ function showClashProxyModal(groups) {
     var style = document.createElement('style');
     style.id = 'clash-modal-styles';
     style.textContent = '.clash-group { margin-bottom: 20px; }' +
-      '.clash-group-title { font-weight: 600; margin-bottom: 8px; font-size: 14px; }' +
+      '.clash-group:last-child { margin-bottom: 0; }' +
+      '.clash-group-title { font-weight: 600; margin-bottom: 10px; font-size: 14px; color: var(--text); }' +
       '.clash-nodes { display: flex; flex-wrap: wrap; gap: 8px; }' +
-      '.clash-node-btn { padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); cursor: pointer; font-size: 13px; transition: all 0.2s; }' +
+      '.clash-node-btn { padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); cursor: pointer; font-size: 13px; transition: all 0.2s; color: var(--text); font-family: inherit; }' +
       '.clash-node-btn:hover { background: var(--bg-hover); border-color: var(--primary-color); }' +
       '.clash-node-btn.current { background: var(--primary-color); color: white; border-color: var(--primary-color); }' +
       '.clash-node-btn:disabled { opacity: 0.5; cursor: not-allowed; }';
@@ -819,7 +830,7 @@ function showClashProxyModal(groups) {
 
 // 关闭 Clash 弹窗
 function closeClashModal() {
-  var modal = document.querySelector('.modal');
+  var modal = document.getElementById('clash-proxy-modal');
   if (modal) {
     modal.remove();
   }
