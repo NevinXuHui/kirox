@@ -25,6 +25,7 @@ export namespace email {
 	    token: string;
 	    projectCode: string;
 	    emailType: string;
+	    variantMode: string;
 	    domain: string;
 	    baseURL: string;
 	
@@ -38,6 +39,7 @@ export namespace email {
 	        this.token = source["token"];
 	        this.projectCode = source["projectCode"];
 	        this.emailType = source["emailType"];
+	        this.variantMode = source["variantMode"];
 	        this.domain = source["domain"];
 	        this.baseURL = source["baseURL"];
 	    }
@@ -125,29 +127,8 @@ export namespace proxy {
 	        this.error = source["error"];
 	    }
 	}
-	export class PoolEntry {
-	    id: string;
-	    name: string;
-	    url: string;
-	    weight: number;
-	    enabled: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new PoolEntry(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.url = source["url"];
-	        this.weight = source["weight"];
-	        this.enabled = source["enabled"];
-	    }
-	}
 
 }
-
 
 export namespace task {
 	
@@ -156,6 +137,7 @@ export namespace task {
 	    concurrency: number;
 	    delay: number;
 	    outputPath: string;
+	    accountsPerFolder: number;
 	    emailProvider: string;
 	    moemailDomains: string[];
 	    moemailConfigs: Record<string, Array<email.MoeMailConfig>>;
@@ -177,6 +159,7 @@ export namespace task {
 	        this.concurrency = source["concurrency"];
 	        this.delay = source["delay"];
 	        this.outputPath = source["outputPath"];
+	        this.accountsPerFolder = source["accountsPerFolder"];
 	        this.emailProvider = source["emailProvider"];
 	        this.moemailDomains = source["moemailDomains"];
 	        this.moemailConfigs = this.convertValues(source["moemailConfigs"], Array<email.MoeMailConfig>, true);

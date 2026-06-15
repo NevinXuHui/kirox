@@ -38,6 +38,10 @@ export function DownloadUpdate() {
   return window['go']['main']['App']['DownloadUpdate']();
 }
 
+export function GetCloudMailConfigs() {
+  return window['go']['main']['App']['GetCloudMailConfigs']();
+}
+
 export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }
@@ -72,10 +76,6 @@ export function GetOverview() {
 
 export function GetProxy() {
   return window['go']['main']['App']['GetProxy']();
-}
-
-export function GetProxyPool() {
-  return window['go']['main']['App']['GetProxyPool']();
 }
 
 export function GetResultOutputDir() {
@@ -134,12 +134,12 @@ export function ResetResultOutputDir() {
   return window['go']['main']['App']['ResetResultOutputDir']();
 }
 
-export function SaveLuckMailConfigs(arg1) {
-  return window['go']['main']['App']['SaveLuckMailConfigs'](arg1);
-}
-
 export function SaveCloudMailConfigs(arg1) {
   return window['go']['main']['App']['SaveCloudMailConfigs'](arg1);
+}
+
+export function SaveLuckMailConfigs(arg1) {
+  return window['go']['main']['App']['SaveLuckMailConfigs'](arg1);
 }
 
 export function SaveMoeMailConfigs(arg1) {
@@ -200,34 +200,6 @@ export function TestTempMailLolConnection(arg1) {
 
 export function TestYYDSMailConnection(arg1) {
   return window['go']['main']['App']['TestYYDSMailConnection'](arg1);
-}
-
-export function GetCloudMailConfigs() {
-  return window['go']['main']['App']['GetCloudMailConfigs']();
-}
-
-export function GetOSLanguage() {
-  return window['go']['main']['App']['GetOSLanguage']();
-}
-
-export function ListProxyPool() {
-  return window['go']['main']['App']['ListProxyPool']();
-}
-
-export function ResetFingerprintCache() {
-  return window['go']['main']['App']['ResetFingerprintCache']();
-}
-
-export function SetLanguage(arg1) {
-  return window['go']['main']['App']['SetLanguage'](arg1);
-}
-
-export function TestProxyEntry(arg1) {
-  return window['go']['main']['App']['TestProxyEntry'](arg1);
-}
-
-export function UpdateProxyEntry(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['UpdateProxyEntry'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function VerifyLicense(arg1) {

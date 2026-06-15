@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -20,17 +21,18 @@ import (
 
 // StartTaskRequest 启动任务请求
 type StartTaskRequest struct {
-	Count             int                              `json:"count"`
-	Concurrency       int                              `json:"concurrency"`
-	Delay             int                              `json:"delay"`
-	OutputPath        string                           `json:"outputPath"`
-	EmailProvider     string                           `json:"emailProvider"`     // "outlook" / "moemail" / "luckmail" / "yydsmail" / "tempmaillol"
-	MoeMailDomains    []string                         `json:"moemailDomains"`    // 选中的域名列表
-	MoeMailConfigs    map[string][]email.MoeMailConfig `json:"moemailConfigs"`    // 域名 -> 配置列表映射
-	MoeMailRandomMode bool                             `json:"moemailRandomMode"` // 是否为随机模式
-	LuckMailConfig    *email.LuckMailConfig            `json:"luckmailConfig"`    // LuckMail 配置
-	YYDSMailConfig    *email.YYDSMailConfig            `json:"yydsmailConfig"`    // YYDS Mail 配置
-	TempMailLolConfig *email.TempMailLolConfig         `json:"tempmaillolConfig"` // TempMail.lol 配置
+	Count               int                                `json:"count"`
+	Concurrency         int                                `json:"concurrency"`
+	Delay               int                                `json:"delay"`
+	OutputPath          string                             `json:"outputPath"`
+	AccountsPerFolder   int                                `json:"accountsPerFolder"`
+	EmailProvider       string                             `json:"emailProvider"`     // "outlook" / "moemail" / "luckmail" / "yydsmail" / "tempmaillol"
+	MoeMailDomains      []string                           `json:"moemailDomains"`    // 选中的域名列表
+	MoeMailConfigs      map[string][]email.MoeMailConfig   `json:"moemailConfigs"`    // 域名 -> 配置列表映射
+	MoeMailRandomMode   bool                               `json:"moemailRandomMode"` // 是否为随机模式
+	LuckMailConfig      *email.LuckMailConfig              `json:"luckmailConfig"`    // LuckMail 配置
+	YYDSMailConfig      *email.YYDSMailConfig              `json:"yydsmailConfig"`    // YYDS Mail 配置
+	TempMailLolConfig   *email.TempMailLolConfig           `json:"tempmaillolConfig"` // TempMail.lol 配置
 	CloudMailDomains    []string                           `json:"cloudmailDomains"`
 	CloudMailConfigs    map[string][]email.CloudMailConfig `json:"cloudmailConfigs"`
 	CloudMailRandomMode bool                               `json:"cloudmailRandomMode"`
@@ -42,6 +44,21 @@ func waitBeforeNextConcurrentLaunch(index, total, delaySeconds int, wait func(ti
 		return
 	}
 	wait(time.Duration(delaySeconds) * time.Second)
+}
+
+func normalizeAccountsPerFolder(value int) int {
+	if value <= 0 {
+		return 0
+	}
+	return value
+}
+
+func resolveSuccessOutputDir(baseDir string, accountsPerFolder, successCount int) string {
+	if accountsPerFolder <= 0 || successCount <= 0 {
+		return baseDir
+	}
+	batchIndex := (successCount-1)/accountsPerFolder + 1
+	return filepath.Join(baseDir, fmt.Sprintf("batch-%03d", batchIndex))
 }
 
 // StartTask 公开方法（包装器）
@@ -223,10 +240,10 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		outDir = storage.GetResultOutputDir()
 	}
 	os.MkdirAll(outDir, 0755)
+	accountsPerFolder := normalizeAccountsPerFolder(req.AccountsPerFolder)
 
 	taskConfig := core.NewConfig()
 	taskConfig.EmailProvider = emailProvider
-
 
 	// 预先准备 MoeMail 域名池
 	var moemailDomainPool []string
@@ -505,8 +522,8 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 
 			errorMsg, _ := result["error"].(string)
 
-			// AWS 熔断：任一任务遇到 400/BLOCKED/IP-flagged 类错误就终止全部
-			// 触发后继续跑只会烧邮箱、烧代理额度
+			// AWS 熔断：仅对明确的 IP/指纹检测错误终止全部任务。
+			// 普通注册拦截交给当前任务按常规失败/重试处理，不触发全局停止。
 			if isKillSwitchError(errorMsg) {
 				otpKillOnce.Do(func() {
 					log.Printf("[Kiro] ⚠️ 检测到熔断级错误(%s)，立即终止所有注册任务", errorMsg)
@@ -562,8 +579,10 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		Manager.completed++
 
 		success := result["status"] == "success"
+		successCount := 0
 		if success {
 			Manager.success++
+			successCount = Manager.success
 		} else {
 			Manager.failed++
 		}
@@ -608,13 +627,14 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 			// 未设密码的失败邮箱不标记 registered，下次任务可继续使用
 		}
 		if success {
-			if err := data.SaveKiroSuccess(result, outDir); err != nil {
+			successOutDir := resolveSuccessOutputDir(outDir, accountsPerFolder, successCount)
+			if err := data.SaveKiroSuccess(result, successOutDir); err != nil {
 				log.Printf("[Kiro] 保存结果失败: %v", err)
 			}
 			// 获取订阅链接
 			if accessToken, ok := result["aws_token"].(map[string]interface{}); ok {
 				if token, ok := accessToken["accessToken"].(string); ok && token != "" {
-					go func(email string, token string) {
+					go func(email string, token string, saveDir string) {
 						subscriptionLink, err := kiro.GetSubscriptionLink(token, "us-east-1")
 						if err != nil {
 							log.Printf("[Kiro] 获取订阅链接失败 (%s): %v", email, err)
@@ -624,10 +644,10 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 						// 保存订阅链接到结果中
 						result["subscriptionLink"] = subscriptionLink
 						// 重新保存结果文件
-						if err := data.SaveKiroSuccess(result, outDir); err != nil {
+						if err := data.SaveKiroSuccess(result, saveDir); err != nil {
 							log.Printf("[Kiro] 更新订阅链接失败: %v", err)
 						}
-					}(currentEmail, token)
+					}(currentEmail, token, successOutDir)
 				}
 			}
 		}
@@ -744,18 +764,15 @@ func classifyError(errorMsg string) string {
 	return "failed"
 }
 
-// isKillSwitchError 判断该错误是否属于"AWS 已把我们拉黑，继续跑没意义"的熔断级错误。
-// 命中则立即终止全部并发任务。与单纯的瞬态失败（网络超时、验证码延迟）区分。
+// isKillSwitchError 判断该错误是否属于需要立即终止全部并发任务的熔断级错误。
+// 普通注册拦截不触发熔断，避免单个任务失败导致整批任务停止。
 func isKillSwitchError(errorMsg string) bool {
 	if errorMsg == "" {
 		return false
 	}
 	triggers := []string{
 		// "send-otp 失败 (400)" 已移除 - 可能是临时邮箱问题，不应触发熔断
-		"注册被拦截",                // formatError 对 BLOCKED/注册请求被拦截 的翻译
-		"IP或浏览器指纹被检测",    // 指纹/IP 被标记
-		"BLOCKED",                  // 响应体里直接包含的风控标记
-		"注册请求被拦截",
+		"IP或浏览器指纹被检测", // 明确指纹/IP 被标记
 	}
 	for _, t := range triggers {
 		if strings.Contains(errorMsg, t) {

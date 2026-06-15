@@ -40,6 +40,10 @@ func (a *App) startup(ctx context.Context) {
 	// 初始化代理池（按数据目录持久化）
 	proxy.InitPool(storage.GetDataDir())
 
+	// 初始化 Clash 客户端
+	clashConfig := storage.LoadClashConfig()
+	proxy.InitClash(clashConfig)
+
 	// 居中显示窗口
 	go func() {
 		time.Sleep(200 * time.Millisecond)
@@ -527,4 +531,78 @@ func (a *App) GetSubscriptionLink(email, planType string) map[string]interface{}
 	}
 	_ = subscription.PutCache(storage.GetDataDir(), email, url, planType)
 	return map[string]interface{}{"success": true, "url": url}
+}
+
+// ---- Clash 外部控制 ----
+
+// GetClashConfig 获取 Clash 配置
+func (a *App) GetClashConfig() map[string]interface{} {
+	config := storage.LoadClashConfig()
+	return map[string]interface{}{
+		"url":    config.URL,
+		"secret": config.Secret,
+	}
+}
+
+// SaveClashConfig 保存 Clash 配置
+func (a *App) SaveClashConfig(url, secret string) map[string]interface{} {
+	config := proxy.ClashConfig{
+		URL:    url,
+		Secret: secret,
+	}
+
+	if err := storage.SaveClashConfig(config); err != nil {
+		return map[string]interface{}{"success": false, "error": err.Error()}
+	}
+
+	// 更新客户端配置
+	if client := proxy.GetClashClient(); client != nil {
+		client.UpdateConfig(config)
+	}
+
+	return map[string]interface{}{"success": true}
+}
+
+// TestClashConnection 测试 Clash 连接
+func (a *App) TestClashConnection() map[string]interface{} {
+	client := proxy.GetClashClient()
+	if client == nil || !client.IsEnabled() {
+		return map[string]interface{}{"success": false, "error": "Clash 未配置"}
+	}
+
+	if err := client.TestConnection(); err != nil {
+		return map[string]interface{}{"success": false, "error": err.Error()}
+	}
+
+	return map[string]interface{}{"success": true}
+}
+
+// GetClashProxyGroups 获取 Clash 代理组列表
+func (a *App) GetClashProxyGroups() map[string]interface{} {
+	client := proxy.GetClashClient()
+	if client == nil || !client.IsEnabled() {
+		return map[string]interface{}{"success": false, "error": "Clash 未配置"}
+	}
+
+	groups, err := client.GetProxyGroups()
+	if err != nil {
+		return map[string]interface{}{"success": false, "error": err.Error()}
+	}
+
+	return map[string]interface{}{"success": true, "groups": groups}
+}
+
+// SwitchClashProxy 切换 Clash 代理节点
+func (a *App) SwitchClashProxy(group, nodeName string) map[string]interface{} {
+	client := proxy.GetClashClient()
+	if client == nil || !client.IsEnabled() {
+		return map[string]interface{}{"success": false, "error": "Clash 未配置"}
+	}
+
+	if err := client.SwitchProxy(group, nodeName); err != nil {
+		return map[string]interface{}{"success": false, "error": err.Error()}
+	}
+
+	log.Printf("[Clash] 已切换 %s -> %s", group, nodeName)
+	return map[string]interface{}{"success": true}
 }

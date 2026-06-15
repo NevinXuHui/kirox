@@ -293,12 +293,20 @@ function updateUIStatus(running) {
   btnStops.forEach(function(btn) { if (btn) btn.disabled = !running; });
 }
 
+function readAccountsPerFolder() {
+  var el = document.getElementById('cfg-accounts-per-folder');
+  if (!el) return 0;
+  var value = parseInt(el.value, 10);
+  return value > 0 ? value : 0;
+}
+
 // 配置读写
 function getFormConfig() {
   const config = {
     count: parseInt(document.getElementById('cfg-count').value) || 1,
     concurrency: parseInt(document.getElementById('cfg-concurrency').value) || 1,
     delay: parseInt(document.getElementById('cfg-delay').value) || 3,
+    accountsPerFolder: readAccountsPerFolder(),
     emailProvider: selectedEmailProvider || 'outlook'
   };
 
@@ -424,7 +432,7 @@ function saveConfig() {
 
 
 // 自动保存
-['cfg-count', 'cfg-concurrency', 'cfg-delay'].forEach(function(id) {
+['cfg-count', 'cfg-concurrency', 'cfg-delay', 'cfg-accounts-per-folder'].forEach(function(id) {
   var el = document.getElementById(id);
   if (el) {
     el.addEventListener('change', saveConfig);
@@ -501,6 +509,8 @@ async function loadConfig() {
       document.getElementById('cfg-count').value = cfg.count || 1;
       document.getElementById('cfg-concurrency').value = cfg.concurrency || 1;
       document.getElementById('cfg-delay').value = cfg.delay || 3;
+      var accountsPerFolderEl = document.getElementById('cfg-accounts-per-folder');
+      if (accountsPerFolderEl) accountsPerFolderEl.value = cfg.accountsPerFolder || 0;
 
       // 恢复邮箱提供商选择
       if (cfg.emailProvider) {
@@ -671,3 +681,189 @@ function renderChangelog(md) {
   return html;
 }
 
+// ===== Clash 外部控制 =====
+
+// 加载 Clash 配置
+function loadClashConfig() {
+  window.go.main.App.GetClashConfig().then(function(config) {
+    document.getElementById('cfg-clash-url').value = config.url || '';
+    document.getElementById('cfg-clash-secret').value = config.secret || '';
+  }).catch(function(err) {
+    console.error('加载 Clash 配置失败:', err);
+  });
+}
+
+// 保存 Clash 配置
+function saveClashConfig() {
+  var url = document.getElementById('cfg-clash-url').value.trim();
+  var secret = document.getElementById('cfg-clash-secret').value.trim();
+
+  window.go.main.App.SaveClashConfig(url, secret).then(function(resp) {
+    if (resp.success) {
+      showToast('Clash 配置已保存', 'success');
+    } else {
+      showToast('保存失败: ' + (resp.error || '未知错误'), 'error');
+    }
+  }).catch(function(err) {
+    showToast('保存失败: ' + err, 'error');
+  });
+}
+
+// 测试 Clash 连接
+function testClashConnection() {
+  var url = document.getElementById('cfg-clash-url').value.trim();
+  var secret = document.getElementById('cfg-clash-secret').value.trim();
+
+  if (!url) {
+    showToast('请先填写 Clash 外部控制地址', 'warning');
+    return;
+  }
+
+  // 先保存配置
+  window.go.main.App.SaveClashConfig(url, secret).then(function() {
+    return window.go.main.App.TestClashConnection();
+  }).then(function(resp) {
+    var card = document.getElementById('clash-status-card');
+    if (resp.success) {
+      card.innerHTML = '<div style="padding:8px;background:var(--success-bg);color:var(--success-text);border-radius:6px;font-size:13px;">✓ 连接成功</div>';
+      card.style.display = 'block';
+      showToast('Clash 连接成功', 'success');
+    } else {
+      card.innerHTML = '<div style="padding:8px;background:var(--error-bg);color:var(--error-text);border-radius:6px;font-size:13px;">✗ ' + (resp.error || '连接失败') + '</div>';
+      card.style.display = 'block';
+      showToast('连接失败: ' + (resp.error || '未知错误'), 'error');
+    }
+  }).catch(function(err) {
+    var card = document.getElementById('clash-status-card');
+    card.innerHTML = '<div style="padding:8px;background:var(--error-bg);color:var(--error-text);border-radius:6px;font-size:13px;">✗ ' + err + '</div>';
+    card.style.display = 'block';
+    showToast('连接失败: ' + err, 'error');
+  });
+}
+
+// 打开 Clash 节点选择器
+function openClashProxySelector() {
+  window.go.main.App.GetClashProxyGroups().then(function(resp) {
+    if (!resp.success) {
+      showToast('获取节点列表失败: ' + (resp.error || '未知错误'), 'error');
+      return;
+    }
+
+    var groups = resp.groups || [];
+    if (groups.length === 0) {
+      showToast('未找到可切换的代理组', 'warning');
+      return;
+    }
+
+    showClashProxyModal(groups);
+  }).catch(function(err) {
+    showToast('获取节点列表失败: ' + err, 'error');
+  });
+}
+
+// 显示 Clash 节点选择弹窗
+function showClashProxyModal(groups) {
+  var modal = document.createElement('div');
+  modal.className = 'modal active';
+  modal.style.zIndex = '10000';
+
+  var groupsHtml = groups.map(function(group) {
+    var nodesHtml = (group.all || []).map(function(node) {
+      var isCurrent = node === group.now;
+      return '<button class="clash-node-btn' + (isCurrent ? ' current' : '') + '" data-group="' + group.name + '" data-node="' + node + '">' +
+        (isCurrent ? '✓ ' : '') + node +
+        '</button>';
+    }).join('');
+
+    return '<div class="clash-group">' +
+      '<div class="clash-group-title">' + group.name + '<span style="color:var(--text-secondary);font-size:12px;margin-left:8px;">(' + group.type + ')</span></div>' +
+      '<div class="clash-nodes">' + nodesHtml + '</div>' +
+      '</div>';
+  }).join('');
+
+  modal.innerHTML = '<div class="modal-content" style="max-width:600px;max-height:80vh;overflow-y:auto;">' +
+    '<div class="modal-header">' +
+    '<h3 style="margin:0;">切换 Clash 节点</h3>' +
+    '<button class="modal-close" onclick="closeClashModal()">×</button>' +
+    '</div>' +
+    '<div class="modal-body" style="padding:16px;">' +
+    groupsHtml +
+    '</div>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+
+  // 绑定节点切换事件
+  modal.querySelectorAll('.clash-node-btn').forEach(function(btn) {
+    btn.onclick = function() {
+      var group = this.getAttribute('data-group');
+      var node = this.getAttribute('data-node');
+      switchClashNode(group, node, this);
+    };
+  });
+
+  // 添加样式
+  if (!document.getElementById('clash-modal-styles')) {
+    var style = document.createElement('style');
+    style.id = 'clash-modal-styles';
+    style.textContent = '.clash-group { margin-bottom: 20px; }' +
+      '.clash-group-title { font-weight: 600; margin-bottom: 8px; font-size: 14px; }' +
+      '.clash-nodes { display: flex; flex-wrap: wrap; gap: 8px; }' +
+      '.clash-node-btn { padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); cursor: pointer; font-size: 13px; transition: all 0.2s; }' +
+      '.clash-node-btn:hover { background: var(--bg-hover); border-color: var(--primary-color); }' +
+      '.clash-node-btn.current { background: var(--primary-color); color: white; border-color: var(--primary-color); }' +
+      '.clash-node-btn:disabled { opacity: 0.5; cursor: not-allowed; }';
+    document.head.appendChild(style);
+  }
+}
+
+// 关闭 Clash 弹窗
+function closeClashModal() {
+  var modal = document.querySelector('.modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+// 切换 Clash 节点
+function switchClashNode(group, node, btnElement) {
+  // 禁用所有按钮
+  var allBtns = document.querySelectorAll('.clash-node-btn');
+  allBtns.forEach(function(btn) { btn.disabled = true; });
+
+  window.go.main.App.SwitchClashProxy(group, node).then(function(resp) {
+    if (resp.success) {
+      showToast('已切换到 ' + node, 'success');
+      // 更新当前选中状态
+      var groupBtns = document.querySelectorAll('.clash-node-btn[data-group="' + group + '"]');
+      groupBtns.forEach(function(btn) {
+        btn.classList.remove('current');
+        btn.textContent = btn.getAttribute('data-node');
+      });
+      btnElement.classList.add('current');
+      btnElement.textContent = '✓ ' + node;
+    } else {
+      showToast('切换失败: ' + (resp.error || '未知错误'), 'error');
+    }
+  }).catch(function(err) {
+    showToast('切换失败: ' + err, 'error');
+  }).finally(function() {
+    // 重新启用所有按钮
+    allBtns.forEach(function(btn) { btn.disabled = false; });
+  });
+}
+
+// 自动保存 Clash 配置
+['cfg-clash-url', 'cfg-clash-secret'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('change', saveClashConfig);
+  }
+});
+
+// 页面加载时加载 Clash 配置
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadClashConfig);
+} else {
+  loadClashConfig();
+}

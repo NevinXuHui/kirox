@@ -22,13 +22,13 @@ export function DetectProxy(arg1:string):Promise<proxy.Info>;
 
 export function DownloadUpdate():Promise<Record<string, any>>;
 
+export function GetCloudMailConfigs():Promise<Array<email.CloudMailConfig>>;
+
 export function GetDataDir():Promise<string>;
 
 export function GetLicenseInfo():Promise<Record<string, any>>;
 
 export function GetLogs():Promise<Array<string>>;
-
-export function GetCloudMailConfigs():Promise<Array<email.CloudMailConfig>>;
 
 export function GetLuckMailConfigs():Promise<Array<email.LuckMailConfig>>;
 
@@ -36,15 +36,11 @@ export function GetLuckMailDomains(arg1:string):Promise<Record<string, any>>;
 
 export function GetMoeMailConfigs():Promise<Array<email.MoeMailConfig>>;
 
-export function GetOSLanguage():Promise<string>;
-
 export function GetOutlookAccounts():Promise<Array<Record<string, any>>>;
 
 export function GetOverview():Promise<Record<string, any>>;
 
 export function GetProxy():Promise<string>;
-
-export function GetProxyPool():Promise<Array<string>>;
 
 export function GetResultOutputDir():Promise<string>;
 
@@ -62,8 +58,6 @@ export function GetYYDSMailConfigs():Promise<Array<email.YYDSMailConfig>>;
 
 export function ImportOutlookFile(arg1:string):Promise<Record<string, any>>;
 
-export function ListProxyPool():Promise<Array<proxy.PoolEntry>>;
-
 export function LoadOutputAccounts():Promise<Record<string, any>>;
 
 export function LogoutLicense():Promise<Record<string, any>>;
@@ -72,15 +66,13 @@ export function OpenURL(arg1:string):Promise<void>;
 
 export function ResetDataDir():Promise<Record<string, any>>;
 
-export function ResetFingerprintCache():Promise<Record<string, any>>;
-
 export function ResetProxy():Promise<Record<string, any>>;
 
 export function ResetResultOutputDir():Promise<Record<string, any>>;
 
-export function SaveLuckMailConfigs(arg1:string):Promise<Record<string, any>>;
-
 export function SaveCloudMailConfigs(arg1:string):Promise<Record<string, any>>;
+
+export function SaveLuckMailConfigs(arg1:string):Promise<Record<string, any>>;
 
 export function SaveMoeMailConfigs(arg1:string):Promise<Record<string, any>>;
 
@@ -93,8 +85,6 @@ export function SelectDirectory():Promise<string>;
 export function SelectOutlookFile():Promise<string>;
 
 export function SetDataDir(arg1:string):Promise<Record<string, any>>;
-
-export function SetLanguage(arg1:string):Promise<Record<string, any>>;
 
 export function SetProxy(arg1:string):Promise<Record<string, any>>;
 
@@ -113,9 +103,5 @@ export function TestMoeMailConnection(arg1:string):Promise<Record<string, any>>;
 export function TestTempMailLolConnection(arg1:string):Promise<Record<string, any>>;
 
 export function TestYYDSMailConnection(arg1:string):Promise<Record<string, any>>;
-
-export function TestProxyEntry(arg1:string):Promise<proxy.Info>;
-
-export function UpdateProxyEntry(arg1:string,arg2:string,arg3:string,arg4:number,arg5:boolean):Promise<Record<string, any>>;
 
 export function VerifyLicense(arg1:string):Promise<Record<string, any>>;

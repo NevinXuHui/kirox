@@ -84,6 +84,12 @@ func LoadAccounts(outDir string) ([]map[string]interface{}, error) {
 	var accounts []map[string]interface{}
 	for _, entry := range entries {
 		if entry.IsDir() {
+			batchAccounts, err := LoadAccounts(filepath.Join(outDir, entry.Name()))
+			if err != nil {
+				log.Printf("读取账号目录失败 %s: %v", entry.Name(), err)
+				continue
+			}
+			accounts = append(accounts, batchAccounts...)
 			continue
 		}
 		name := entry.Name()

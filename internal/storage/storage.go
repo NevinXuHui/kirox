@@ -11,11 +11,19 @@ import (
 	"time"
 )
 
+// ClashConfig Clash 外部控制配置
+type ClashConfig struct {
+	URL    string `json:"url"`
+	Secret string `json:"secret"`
+}
+
 const (
 	keyDataDir         = "data_dir"
 	keyResultOutputDir = "result_output_dir"
 	keyProxy           = "proxy"
 	keyLanguage        = "language"
+	keyClashURL        = "clash_url"
+	keyClashSecret     = "clash_secret"
 )
 
 var (
@@ -79,7 +87,7 @@ func loadConfigMap() map[string]string {
 func saveConfigMap(m map[string]string) error {
 	os.MkdirAll(GetDefaultDataDir(), 0755)
 	var b strings.Builder
-	for _, k := range []string{keyDataDir, keyResultOutputDir, keyProxy, keyLanguage} {
+	for _, k := range []string{keyDataDir, keyResultOutputDir, keyProxy, keyLanguage, keyClashURL, keyClashSecret} {
 		if v := strings.TrimSpace(m[k]); v != "" {
 			b.WriteString(k)
 			b.WriteByte('=')
@@ -545,3 +553,33 @@ func saveJSON(filePath string, items []map[string]interface{}) error {
 	}
 	return os.Rename(tmpFile, filePath)
 }
+
+// ===== Clash 配置 =====
+
+// LoadClashConfig 加载 Clash 外部控制配置
+func LoadClashConfig() ClashConfig {
+	m := loadConfigMap()
+	return ClashConfig{
+		URL:    strings.TrimSpace(m[keyClashURL]),
+		Secret: strings.TrimSpace(m[keyClashSecret]),
+	}
+}
+
+// SaveClashConfig 保存 Clash 外部控制配置
+func SaveClashConfig(config ClashConfig) error {
+	m := loadConfigMap()
+
+	url := strings.TrimSpace(config.URL)
+	secret := strings.TrimSpace(config.Secret)
+
+	if url == "" {
+		delete(m, keyClashURL)
+		delete(m, keyClashSecret)
+	} else {
+		m[keyClashURL] = url
+		m[keyClashSecret] = secret
+	}
+
+	return saveConfigMap(m)
+}
+
