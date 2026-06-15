@@ -193,7 +193,9 @@ func startTask(req StartTaskRequest) map[string]interface{} {
 	return map[string]interface{}{"status": "started"}
 }
 
-// StopTask 停止任务（强制取消所有 HTTP 请求）
+// StopTask 停止任务
+// force=true: 强制停止，立即取消所有 HTTP 请求
+// force=false: 优雅停止，不启动新任务，等待正在执行的任务完成
 func StopTask(force bool) map[string]interface{} {
 	Manager.mu.Lock()
 	if !Manager.running {
@@ -207,15 +209,21 @@ func StopTask(force bool) map[string]interface{} {
 		close(Manager.stopCh)
 	}
 
-	// 强制取消所有进行中的 HTTP 请求
-	if Manager.cancelFunc != nil {
-		Manager.cancelFunc()
+	if force {
+		// 强制取消所有进行中的 HTTP 请求
+		if Manager.cancelFunc != nil {
+			Manager.cancelFunc()
+		}
+		Manager.running = false
+		log.Println("[Kiro] 任务已强制停止，所有请求已取消")
+		Manager.mu.Unlock()
+		return map[string]interface{}{"status": "force_stopped"}
 	}
 
-	Manager.running = false
-	log.Println("[Kiro] 任务已强制停止，所有请求已取消")
+	// 优雅停止：只关闭 stopCh，不取消 context
+	log.Println("[Kiro] 正在优雅停止任务，等待正在执行的任务完成...")
 	Manager.mu.Unlock()
-	return map[string]interface{}{"status": "force_stopped"}
+	return map[string]interface{}{"status": "graceful_stopping"}
 }
 
 // runBatch 执行批量注册

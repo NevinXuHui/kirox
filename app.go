@@ -389,9 +389,9 @@ func (a *App) StartTask(req task.StartTaskRequest) map[string]interface{} {
 	return task.StartTask(req)
 }
 
-// StopTask 停止注册任务
+// StopTask 停止注册任务（优雅停止：等待正在执行的任务完成）
 func (a *App) StopTask() map[string]interface{} {
-	return task.StopTask(true)
+	return task.StopTask(false)
 }
 
 // CheckUpdate 手动检查更新
