@@ -9,13 +9,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-// ClashConfig Clash 外部控制配置
-type ClashConfig struct {
-	URL    string `json:"url"`
-	Secret string `json:"secret"`
-}
+	"reg_go/internal/proxy"
+)
 
 const (
 	keyDataDir         = "data_dir"
@@ -557,16 +553,16 @@ func saveJSON(filePath string, items []map[string]interface{}) error {
 // ===== Clash 配置 =====
 
 // LoadClashConfig 加载 Clash 外部控制配置
-func LoadClashConfig() ClashConfig {
+func LoadClashConfig() proxy.ClashConfig {
 	m := loadConfigMap()
-	return ClashConfig{
+	return proxy.ClashConfig{
 		URL:    strings.TrimSpace(m[keyClashURL]),
 		Secret: strings.TrimSpace(m[keyClashSecret]),
 	}
 }
 
 // SaveClashConfig 保存 Clash 外部控制配置
-func SaveClashConfig(config ClashConfig) error {
+func SaveClashConfig(config proxy.ClashConfig) error {
 	m := loadConfigMap()
 
 	url := strings.TrimSpace(config.URL)
