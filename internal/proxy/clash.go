@@ -168,18 +168,43 @@ func (c *ClashClient) GetProxyGroups() ([]ClashProxy, error) {
 
 	for _, name := range globalNames {
 		if proxy, ok := proxies[name]; ok && len(proxy.All) > 0 {
-			proxy.Name = name
-			groups = append(groups, proxy)
-			return groups, nil // 找到第一个全局代理组就返回
+			// 过滤掉 Direct 和 Reject 节点
+			filteredNodes := make([]string, 0, len(proxy.All))
+			for _, node := range proxy.All {
+				nodeLower := strings.ToLower(node)
+				if nodeLower != "direct" && nodeLower != "reject" {
+					filteredNodes = append(filteredNodes, node)
+				}
+			}
+
+			// 如果过滤后还有节点，才返回这个代理组
+			if len(filteredNodes) > 0 {
+				proxy.Name = name
+				proxy.All = filteredNodes
+				groups = append(groups, proxy)
+				return groups, nil // 找到第一个全局代理组就返回
+			}
 		}
 	}
 
-	// 如果没有找到常见的全局代理组，返回第一个有可选节点的代理组
+	// 如果没有找到常见的全局代理组，返回第一个有可选节点的代理组（同样过滤）
 	for name, proxy := range proxies {
 		if len(proxy.All) > 0 {
-			proxy.Name = name
-			groups = append(groups, proxy)
-			return groups, nil
+			// 过滤掉 Direct 和 Reject 节点
+			filteredNodes := make([]string, 0, len(proxy.All))
+			for _, node := range proxy.All {
+				nodeLower := strings.ToLower(node)
+				if nodeLower != "direct" && nodeLower != "reject" {
+					filteredNodes = append(filteredNodes, node)
+				}
+			}
+
+			if len(filteredNodes) > 0 {
+				proxy.Name = name
+				proxy.All = filteredNodes
+				groups = append(groups, proxy)
+				return groups, nil
+			}
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -105,7 +106,7 @@ func TestClashClientGetProxyGroups(t *testing.T) {
 				"GLOBAL": {
 					Type: "Selector",
 					Now:  "Proxy",
-					All:  []string{"Proxy", "Direct"},
+					All:  []string{"Proxy", "Direct", "REJECT", "HK-01"},
 				},
 				"Proxy": {
 					Type: "URLTest",
@@ -140,8 +141,23 @@ func TestClashClientGetProxyGroups(t *testing.T) {
 		t.Errorf("expected 1 global group, got %d", len(groups))
 	}
 
-	if len(groups) > 0 && groups[0].Name != "GLOBAL" {
-		t.Errorf("expected GLOBAL group, got %s", groups[0].Name)
+	if len(groups) > 0 {
+		if groups[0].Name != "GLOBAL" {
+			t.Errorf("expected GLOBAL group, got %s", groups[0].Name)
+		}
+
+		// 验证过滤掉了 Direct 和 REJECT
+		for _, node := range groups[0].All {
+			nodeLower := strings.ToLower(node)
+			if nodeLower == "direct" || nodeLower == "reject" {
+				t.Errorf("Direct/Reject node should be filtered out, got: %s", node)
+			}
+		}
+
+		// 应该只剩下 Proxy 和 HK-01
+		if len(groups[0].All) != 2 {
+			t.Errorf("expected 2 nodes after filtering, got %d", len(groups[0].All))
+		}
 	}
 }
 
