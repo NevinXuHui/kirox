@@ -140,3 +140,30 @@ func TestClashClientGetProxyGroups(t *testing.T) {
 		t.Errorf("expected 2 groups, got %d", len(groups))
 	}
 }
+
+func TestClashClientAutoAddHttpPrefix(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := ClashProxiesResponse{
+			Proxies: map[string]ClashProxy{},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	// 去掉 http:// 前缀，只保留 host:port
+	urlWithoutScheme := server.URL[7:] // 移除 "http://"
+
+	client := &ClashClient{
+		config: ClashConfig{
+			URL:    urlWithoutScheme,
+			Secret: "",
+		},
+		client: http.DefaultClient,
+	}
+
+	// 如果能成功请求，说明自动补全了 http:// 前缀
+	_, err := client.GetProxies()
+	if err != nil {
+		t.Fatalf("GetProxies with URL without scheme failed: %v", err)
+	}
+}

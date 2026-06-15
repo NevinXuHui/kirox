@@ -95,7 +95,13 @@ func (c *ClashClient) doRequest(method, path string, body interface{}) ([]byte, 
 		return nil, fmt.Errorf("Clash 外部控制地址未配置")
 	}
 
-	url := strings.TrimRight(config.URL, "/") + path
+	// 自动补全协议前缀
+	baseURL := config.URL
+	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		baseURL = "http://" + baseURL
+	}
+
+	url := strings.TrimRight(baseURL, "/") + path
 
 	var reqBody io.Reader
 	if body != nil {
