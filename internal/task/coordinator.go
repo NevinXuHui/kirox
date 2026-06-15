@@ -226,6 +226,111 @@ func StopTask(force bool) map[string]interface{} {
 	return map[string]interface{}{"status": "graceful_stopping"}
 }
 
+// testNodeWithSingleTask 使用单个任务测试节点是否可用
+// 返回 true 表示节点可用，false 表示遇到 400 错误或其他致命错误
+func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, emailProvider string, outlookAccounts []email.OutlookAccount, groupName, nodeName string) bool {
+	log.Printf("[Kiro] 📡 测试节点 %s (组: %s)...", nodeName, groupName)
+
+	taskConfig := core.NewConfig()
+	taskConfig.EmailProvider = emailProvider
+	taskConfig.Password = core.GenPassword()
+
+	// 根据邮箱类型准备配置
+	var testEmail string
+	if emailProvider == "outlook" && len(outlookAccounts) > 0 {
+		taskConfig.UseOutlook = true
+		taskConfig.OutlookAccount = &outlookAccounts[0]
+		testEmail = outlookAccounts[0].Email
+	} else if emailProvider == "moemail" && len(req.MoeMailDomains) > 0 {
+		taskConfig.UseMoeMail = true
+		domain := req.MoeMailDomains[0]
+		configs := req.MoeMailConfigs[domain]
+		if len(configs) > 0 {
+			emailName := email.GenerateEmailName(0)
+			provider, err := email.NewMoeMailProvider(configs[0], emailName, 3600000, domain)
+			if err != nil {
+				log.Printf("[Kiro] 测试邮箱创建失败: %v", err)
+				return false
+			}
+			taskConfig.MoeMailProvider = provider
+			testEmail = provider.GetAddress()
+		}
+	} else if emailProvider == "luckmail" && req.LuckMailConfig != nil {
+		taskConfig.UseLuckMail = true
+		taskConfig.LuckMailConfig = req.LuckMailConfig
+		provider, err := email.NewLuckMailProvider(*req.LuckMailConfig)
+		if err != nil {
+			log.Printf("[Kiro] 测试邮箱创建失败: %v", err)
+			return false
+		}
+		taskConfig.LuckMailProvider = provider
+		testEmail = provider.GetAddress()
+	} else if emailProvider == "yydsmail" && req.YYDSMailConfig != nil {
+		taskConfig.UseYYDSMail = true
+		taskConfig.YYDSMailConfig = req.YYDSMailConfig
+		provider, err := email.NewYYDSMailProvider(*req.YYDSMailConfig)
+		if err != nil {
+			log.Printf("[Kiro] 测试邮箱创建失败: %v", err)
+			return false
+		}
+		taskConfig.YYDSMailProvider = provider
+		testEmail = provider.GetAddress()
+	} else if emailProvider == "tempmaillol" && req.TempMailLolConfig != nil {
+		taskConfig.UseTempMailLol = true
+		taskConfig.TempMailLolConfig = req.TempMailLolConfig
+		provider, err := email.NewTempMailLolProvider(*req.TempMailLolConfig)
+		if err != nil {
+			log.Printf("[Kiro] 测试邮箱创建失败: %v", err)
+			return false
+		}
+		taskConfig.TempMailLolProvider = provider
+		testEmail = provider.GetAddress()
+	} else if emailProvider == "cloudmail" && len(req.CloudMailDomains) > 0 {
+		taskConfig.UseCloudMail = true
+		domain := req.CloudMailDomains[0]
+		configs := req.CloudMailConfigs[domain]
+		if len(configs) > 0 {
+			emailName := email.GenerateEmailName(0)
+			provider, err := email.NewCloudMailProvider(configs[0], emailName, domain)
+			if err != nil {
+				log.Printf("[Kiro] 测试邮箱创建失败: %v", err)
+				return false
+			}
+			taskConfig.CloudMailProvider = provider
+			testEmail = provider.GetAddress()
+		}
+	} else {
+		log.Printf("[Kiro] ⚠️ 无法创建测试邮箱，跳过节点测试")
+		return true // 无法测试时假定节点可用
+	}
+
+	log.Printf("[Kiro] 使用测试邮箱: %s", testEmail)
+
+	// 执行测试注册
+	reg := core.NewRegistrar(taskConfig)
+	reg.Ctx = taskCtx
+	reg.TaskLabel = "节点测试"
+	result := reg.Run()
+
+	// 检查结果
+	if result["status"] == "success" {
+		log.Printf("[Kiro] ✓ 节点测试成功")
+		return true
+	}
+
+	errorMsg, _ := result["error"].(string)
+
+	// 检查是否是 400 错误或其他致命错误
+	if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
+		log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+		return false
+	}
+
+	// 其他错误（如网络问题、临时错误）不影响节点判断
+	log.Printf("[Kiro] ⚠️ 节点测试遇到非致命错误: %s，假定节点可用", errorMsg)
+	return true
+}
+
 // runBatch 执行批量注册
 func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []email.OutlookAccount) {
 	// 创建可取消的 context，停止时立即中断所有 HTTP 请求
@@ -242,6 +347,67 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 		Manager.cancelFunc = nil
 		Manager.mu.Unlock()
 	}()
+
+	// ===== Clash 节点预检测 =====
+	clashClient := proxy.GetClashClient()
+	if clashClient != nil && clashClient.IsEnabled() {
+		log.Println("[Kiro] 检测到 Clash 配置，开始节点预检测...")
+
+		// 获取可用节点列表
+		groups, err := clashClient.GetProxyGroups()
+		if err != nil {
+			log.Printf("[Kiro] ⚠️ 获取 Clash 节点列表失败: %v，将使用当前节点继续", err)
+		} else if len(groups) > 0 && len(groups[0].All) > 0 {
+			group := groups[0]
+			nodes := group.All
+			currentNode := group.Now
+
+			log.Printf("[Kiro] 发现 %d 个可用节点，当前节点: %s", len(nodes), currentNode)
+
+			// 先测试当前节点
+			if testNodeSuccess := testNodeWithSingleTask(taskCtx, req, emailProvider, outlookAccounts, group.Name, currentNode); testNodeSuccess {
+				log.Printf("[Kiro] ✓ 当前节点 %s 测试通过，开始批量注册", currentNode)
+			} else {
+				// 当前节点失败，尝试其他节点
+				log.Printf("[Kiro] ✗ 当前节点 %s 测试失败，尝试切换到其他节点...", currentNode)
+
+				foundWorkingNode := false
+				for _, node := range nodes {
+					if node == currentNode {
+						continue // 跳过当前节点
+					}
+
+					// 切换节点
+					log.Printf("[Kiro] 正在切换到节点: %s", node)
+					if err := clashClient.SwitchProxy(group.Name, node); err != nil {
+						log.Printf("[Kiro] ⚠️ 切换节点失败: %v", err)
+						continue
+					}
+
+					// 等待节点切换生效
+					time.Sleep(2 * time.Second)
+
+					// 测试新节点
+					if testNodeSuccess := testNodeWithSingleTask(taskCtx, req, emailProvider, outlookAccounts, group.Name, node); testNodeSuccess {
+						log.Printf("[Kiro] ✓ 节点 %s 测试通过，开始批量注册", node)
+						foundWorkingNode = true
+						break
+					} else {
+						log.Printf("[Kiro] ✗ 节点 %s 测试失败，继续尝试下一个节点", node)
+					}
+				}
+
+				if !foundWorkingNode {
+					log.Println("[Kiro] ✗ 所有节点测试均失败，任务终止")
+					Manager.mu.Lock()
+					Manager.running = false
+					Manager.mu.Unlock()
+					return
+				}
+			}
+		}
+	}
+	// ===== 节点预检测结束 =====
 
 	outDir := req.OutputPath
 	if outDir == "" {
