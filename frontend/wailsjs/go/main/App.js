@@ -38,6 +38,14 @@ export function DownloadUpdate() {
   return window['go']['main']['App']['DownloadUpdate']();
 }
 
+export function GetClashConfig() {
+  return window['go']['main']['App']['GetClashConfig']();
+}
+
+export function GetClashProxyGroups() {
+  return window['go']['main']['App']['GetClashProxyGroups']();
+}
+
 export function GetCloudMailConfigs() {
   return window['go']['main']['App']['GetCloudMailConfigs']();
 }
@@ -134,6 +142,10 @@ export function ResetResultOutputDir() {
   return window['go']['main']['App']['ResetResultOutputDir']();
 }
 
+export function SaveClashConfig(arg1, arg2) {
+  return window['go']['main']['App']['SaveClashConfig'](arg1, arg2);
+}
+
 export function SaveCloudMailConfigs(arg1) {
   return window['go']['main']['App']['SaveCloudMailConfigs'](arg1);
 }
@@ -180,6 +192,14 @@ export function StartTask(arg1) {
 
 export function StopTask() {
   return window['go']['main']['App']['StopTask']();
+}
+
+export function SwitchClashProxy(arg1, arg2) {
+  return window['go']['main']['App']['SwitchClashProxy'](arg1, arg2);
+}
+
+export function TestClashConnection() {
+  return window['go']['main']['App']['TestClashConnection']();
 }
 
 export function TestCloudMailConnection(arg1) {

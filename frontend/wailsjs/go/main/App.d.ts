@@ -22,6 +22,10 @@ export function DetectProxy(arg1:string):Promise<proxy.Info>;
 
 export function DownloadUpdate():Promise<Record<string, any>>;
 
+export function GetClashConfig():Promise<Record<string, any>>;
+
+export function GetClashProxyGroups():Promise<Record<string, any>>;
+
 export function GetCloudMailConfigs():Promise<Array<email.CloudMailConfig>>;
 
 export function GetDataDir():Promise<string>;
@@ -70,6 +74,8 @@ export function ResetProxy():Promise<Record<string, any>>;
 
 export function ResetResultOutputDir():Promise<Record<string, any>>;
 
+export function SaveClashConfig(arg1:string,arg2:string):Promise<Record<string, any>>;
+
 export function SaveCloudMailConfigs(arg1:string):Promise<Record<string, any>>;
 
 export function SaveLuckMailConfigs(arg1:string):Promise<Record<string, any>>;
@@ -93,6 +99,10 @@ export function SetResultOutputDir(arg1:string):Promise<Record<string, any>>;
 export function StartTask(arg1:task.StartTaskRequest):Promise<Record<string, any>>;
 
 export function StopTask():Promise<Record<string, any>>;
+
+export function SwitchClashProxy(arg1:string,arg2:string):Promise<Record<string, any>>;
+
+export function TestClashConnection():Promise<Record<string, any>>;
 
 export function TestCloudMailConnection(arg1:string):Promise<Record<string, any>>;
 
