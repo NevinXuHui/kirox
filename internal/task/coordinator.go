@@ -438,18 +438,36 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 
 			log.Printf("[Kiro] 发现 %d 个可用节点，当前节点: %s", len(nodes), currentNode)
 
+			// 找到当前节点的索引位置
+			currentIndex := -1
+			for i, node := range nodes {
+				if node == currentNode {
+					currentIndex = i
+					break
+				}
+			}
+
 			// 先测试当前节点
 			if testNodeSuccess := testNodeWithSingleTask(taskCtx, req, emailProvider, outlookAccounts, group.Name, currentNode); testNodeSuccess {
 				log.Printf("[Kiro] ✓ 当前节点 %s 测试通过，开始批量注册", currentNode)
 			} else {
-				// 当前节点失败，尝试其他节点
+				// 当前节点失败，从下一个节点开始尝试其他节点
 				log.Printf("[Kiro] ✗ 当前节点 %s 测试失败，尝试切换到其他节点...", currentNode)
 
 				foundWorkingNode := false
-				for _, node := range nodes {
+				testedCount := 0
+
+				// 从当前节点的下一个开始，遍历所有节点（循环一圈）
+				for i := 0; i < len(nodes); i++ {
+					nextIndex := (currentIndex + 1 + i) % len(nodes)
+					node := nodes[nextIndex]
+
+					// 跳过当前节点（已经测试过了）
 					if node == currentNode {
-						continue // 跳过当前节点
+						continue
 					}
+
+					testedCount++
 
 					// 切换节点
 					log.Printf("[Kiro] 正在切换到节点: %s", node)
@@ -472,7 +490,7 @@ func runBatch(req StartTaskRequest, emailProvider string, outlookAccounts []emai
 				}
 
 				if !foundWorkingNode {
-					log.Println("[Kiro] ✗ 所有节点测试均失败，任务终止")
+					log.Printf("[Kiro] ✗ 所有节点测试均失败（共测试 %d 个节点），任务终止", testedCount+1)
 					Manager.mu.Lock()
 					Manager.running = false
 					Manager.mu.Unlock()
