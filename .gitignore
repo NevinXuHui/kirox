@@ -4,6 +4,8 @@ build/windows/
 build/linux/
 build/appicon.png
 build/darwin/iconfile.icns
+build/kirox
+build/darwin/*.app
 *.exe
 *.exe~
 *.dll
@@ -37,6 +39,7 @@ desktop.ini
 *.tmp
 *.log
 *.log.*
+.playwright-mcp/
 
 # Data & user config (runtime files, not source)
 results/
