@@ -306,28 +306,88 @@ func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, email
 
 	log.Printf("[Kiro] 使用测试邮箱: %s", testEmail)
 
-	// 执行测试注册
+	// 执行轻量级测试：只测试到发送验证码成功
 	reg := core.NewRegistrar(taskConfig)
 	reg.Ctx = taskCtx
 	reg.TaskLabel = "节点测试"
-	result := reg.Run()
 
-	// 检查结果
-	if result["status"] == "success" {
-		log.Printf("[Kiro] ✓ 节点测试成功")
+	// 执行测试注册流程的前几步
+	steps := []struct {
+		name string
+		fn   func() error
+	}{
+		{"OIDC", reg.Step1OIDC},
+		{"Device", reg.Step2Device},
+		{"Email", reg.Step3Email},
+		{"Portal", reg.Step4Portal},
+		{"WorkflowInit", reg.Step5WorkflowInit},
+	}
+
+	for _, s := range steps {
+		if err := s.fn(); err != nil {
+			errorMsg := err.Error()
+			if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
+				log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+				return false
+			}
+			// 其他错误不影响节点判断
+			log.Printf("[Kiro] ⚠️ 遇到非致命错误: %s，假定节点可用", errorMsg)
+			return true
+		}
+	}
+
+	// 提交邮箱
+	status, err := reg.Step6SubmitEmail()
+	if err != nil {
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
+			log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+			return false
+		}
 		return true
 	}
 
-	errorMsg, _ := result["error"].(string)
-
-	// 检查是否是 400 错误或其他致命错误
-	if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
-		log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
-		return false
+	if status != "signup" {
+		log.Printf("[Kiro] 邮箱状态: %s (不影响节点测试)", status)
+		return true
 	}
 
-	// 其他错误（如网络问题、临时错误）不影响节点判断
-	log.Printf("[Kiro] ⚠️ 节点测试遇到非致命错误: %s，假定节点可用", errorMsg)
+	// 注册流程的前置步骤
+	signupPreSteps := []struct {
+		name string
+		fn   func() error
+	}{
+		{"Signup", reg.Step7Signup},
+		{"SignupInit", reg.Step7_5SignupInit},
+		{"ProfileInit", reg.Step7_8ProfileInit},
+		{"ProfileStart", reg.Step8ProfileStart},
+	}
+
+	for _, s := range signupPreSteps {
+		if err := s.fn(); err != nil {
+			errorMsg := err.Error()
+			if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
+				log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+				return false
+			}
+			return true
+		}
+	}
+
+	// 关键步骤：发送验证码
+	if err := reg.Step9SendOTP(); err != nil {
+		errorMsg := err.Error()
+		log.Printf("[Kiro] 发送验证码失败: %s", errorMsg)
+		if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
+			log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误")
+			return false
+		}
+		// 其他错误不影响节点判断
+		return true
+	}
+
+	// 发送验证码成功！节点可用，立即返回，不等待后续步骤
+	log.Printf("[Kiro] ✓ 节点测试成功")
 	return true
 }
 
