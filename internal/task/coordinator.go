@@ -231,6 +231,10 @@ func StopTask(force bool) map[string]interface{} {
 func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, emailProvider string, outlookAccounts []email.OutlookAccount, groupName, nodeName string) bool {
 	log.Printf("[Kiro] 📡 测试节点 %s (组: %s)...", nodeName, groupName)
 
+	// 为测试任务创建独立的可取消 context，确保可以立即中止
+	testCtx, testCancel := context.WithCancel(taskCtx)
+	defer testCancel() // 函数返回时自动取消测试任务
+
 	taskConfig := core.NewConfig()
 	taskConfig.EmailProvider = emailProvider
 	taskConfig.Password = core.GenPassword()
@@ -308,7 +312,7 @@ func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, email
 
 	// 执行轻量级测试：只测试到发送验证码成功
 	reg := core.NewRegistrar(taskConfig)
-	reg.Ctx = taskCtx
+	reg.Ctx = testCtx // 使用独立的可取消 context
 	reg.TaskLabel = "节点测试"
 
 	// 执行测试注册流程的前几步
@@ -328,10 +332,12 @@ func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, email
 			errorMsg := err.Error()
 			if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
 				log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+				testCancel() // 立即取消测试任务
 				return false
 			}
 			// 其他错误不影响节点判断
 			log.Printf("[Kiro] ⚠️ 遇到非致命错误: %s，假定节点可用", errorMsg)
+			testCancel() // 取消测试任务
 			return true
 		}
 	}
@@ -342,13 +348,16 @@ func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, email
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
 			log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+			testCancel() // 立即取消测试任务
 			return false
 		}
+		testCancel() // 取消测试任务
 		return true
 	}
 
 	if status != "signup" {
 		log.Printf("[Kiro] 邮箱状态: %s (不影响节点测试)", status)
+		testCancel() // 取消测试任务
 		return true
 	}
 
@@ -368,8 +377,10 @@ func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, email
 			errorMsg := err.Error()
 			if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
 				log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误 - %s", errorMsg)
+				testCancel() // 立即取消测试任务
 				return false
 			}
+			testCancel() // 取消测试任务
 			return true
 		}
 	}
@@ -380,14 +391,17 @@ func testNodeWithSingleTask(taskCtx context.Context, req StartTaskRequest, email
 		log.Printf("[Kiro] 发送验证码失败: %s", errorMsg)
 		if strings.Contains(errorMsg, "(400)") || strings.Contains(errorMsg, "400)") {
 			log.Printf("[Kiro] ✗ 节点测试失败: 检测到 400 错误")
+			testCancel() // 立即取消测试任务
 			return false
 		}
 		// 其他错误不影响节点判断
+		testCancel() // 取消测试任务
 		return true
 	}
 
 	// 发送验证码成功！节点可用，立即返回，不等待后续步骤
 	log.Printf("[Kiro] ✓ 节点测试成功")
+	testCancel() // 取消测试任务，避免后台继续执行
 	return true
 }
 
